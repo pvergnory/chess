@@ -40,7 +40,7 @@ Example on Linux:
 
 ## Using the engine version that includes the GUI
 
-On Linux, the executable needs resources grouped in the 'resources' folder
+On Linux, the executable needs resources grouped in the 'resources' folder.
 On Windows, the executable needs, in addition to the 'resources' folder, to have access to the 4 following DLLs:
 
 - SDL2.dll
