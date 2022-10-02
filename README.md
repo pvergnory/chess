@@ -58,5 +58,5 @@ You can play against the engine or you can start the engine twice (in two separa
 
 The GUI-less engine does not need any additional file.
 
-Add the path to the program in XBOARD (under linux) or WINBOARD (under Windows) list of engines
+Add the path to the program in XBOARD (under linux) or WINBOARD (under Windows) list of engines.
 Select the engine and play !
