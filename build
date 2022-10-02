@@ -1,0 +1,27 @@
+#! /bin/bash
+
+echo
+echo "Make the book"
+echo "-------------"
+cd src
+gcc mk_book.c -o mk_book
+./mk_book openings.txt
+rm mk_book
+cd ..
+
+echo
+echo "Compile the SDL2 standalone game"
+echo "--------------------------------"
+gcc src/$1.c src/sdl2_gui.c -o $1 -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic `sdl2-config --libs` -lpthread -lSDL2_image -lSDL2_ttf -O3 -g
+
+echo
+echo "Archive all the files needed to run it"
+echo "--------------------------------------"
+tar -czvf $1.tar.gz $1 resources
+
+echo
+echo "Compile for XBOARD"
+echo "------------------"
+gcc src/$1.c src/xb_if.c -o ${1}x -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic -lpthread -O3
+echo
+
