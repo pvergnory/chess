@@ -20,7 +20,7 @@
 
 ## Pre-requisites to build
 
-Under Windows, msys64 and MINGW64 must be installed
+Under Windows, msys64 and MINGW64 must be installed.
 Under Linux, gcc must be installed
 
 The GUI uses the SDL2 graphical library
