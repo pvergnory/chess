@@ -34,8 +34,8 @@ build chess
 build chess_pengy
 
 Example on Linux:
-./build.sh chess
-./build.sh chess_pengy
+./build chess
+./build chess_pengy
 
 ## Using the engine version that includes the GUI
 
