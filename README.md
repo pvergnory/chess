@@ -30,12 +30,12 @@ The GUI uses the SDL2 graphical library
 To build any of these two engines, use build.bat on Windows or build.sh on Linux with as argument the engine name ("chess" or "chess_pengy").
 The script will build the two engine variants: with a GUI and GUI-less ('x' added to name end).
 
-Example on Windows:
-build chess
+Example on Windows:  
+build chess  
 build chess_pengy
 
-Example on Linux:
-./build chess
+Example on Linux:  
+./build chess  
 ./build chess_pengy
 
 ## Using the engine version that includes the GUI
