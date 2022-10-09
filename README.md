@@ -52,7 +52,7 @@ These DLLs can be in the same directory as the program or in a directory listed 
 
 Use the mouse to move a piece, use the left arrow and right arrow keys to respectively undo and redo a move.
 
-You can play against the engine or you can start the engine twice (in two separate CMD windows) and make both instances play again each other! For this, click on "TO PLAY" on one of the instances.
+You can play against the engine or you can start the engine twice (in two separate CMD or terminal windows) and make both instances play against each other! For this, click on "TO PLAY" on one of the instances.
 
 ## Using the GUI-less engine version (name ends with a 'x')
 
