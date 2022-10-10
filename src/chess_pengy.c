@@ -1000,6 +1000,7 @@ int nega_alpha_beta(int level, int a, int b, int side, struct move_t *upper_sequ
     for (from = 0; from < BOARD_SIZE - 2; from++)
         if (B(from) & side) list_moves(from);
     int nb_of_moves = move_ptr - list_of_moves;
+    if (nb_of_moves == 0) return (side == engine_side) ? -100000 : 100000; // Avoid "Pats"
 
     // search the previous best move at this level in the list (the "killer" move)
     if (best_move[level].val && best_move[level].val != mm_move.val) {
