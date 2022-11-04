@@ -165,8 +165,7 @@ static void graphical_inits(char* name)
         exit(EXIT_FAILURE);
     }
 
-    Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
-    render              = SDL_CreateRenderer(win, -1, render_flags);
+    render = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!render) {
         fprintf(stderr, "SDL init error: %s\n", SDL_GetError());
         SDL_DestroyWindow(win);
@@ -176,7 +175,7 @@ static void graphical_inits(char* name)
 
     // load the chess pieces image
     SDL_Surface* surface = IMG_Load("resources/Chess_Pieces.png");
-    if (!render) {
+    if (!surface) {
         fprintf(stderr, "SDL surface error: %s\n", SDL_GetError());
         SDL_DestroyRenderer(render);
         SDL_DestroyWindow(win);
@@ -471,7 +470,7 @@ int main(int argc, char* argv[])
 
         // Wait for an event
         SDL_Event event;
-        while (SDL_PollEvent(&event) == 0) {
+        while (SDL_WaitEventTimeout(&event, 20) == 0) {
             // While waiting for an event, check if a program sent us its move
             if (receive_move(move)) {
                 if (try_move(move)) {
@@ -479,7 +478,6 @@ int main(int argc, char* argv[])
                     goto think;
                 }
             }
-            else SDL_Delay(20);
         }
 
         // Event is 'Quit'
