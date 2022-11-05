@@ -1,0 +1,69 @@
+#--------------------------------------------------
+#
+#    Creation du repository chess dans Github
+#
+#--------------------------------------------------
+
+#--------------------------------------------------
+#    Creation du compte GitHub sur GitHub
+#--------------------------------------------------
+
+#--- Creation du compte
+
+# Via le browser sur https://github.com/ :
+
+[sign up] (en haut a droite) ->
+  email -> pascal.vergnory@orange.fr
+  password -> pGvhdev9,
+  user name -> Pascal-Vergnory
+
+#--- Credentials d'acces au compte
+
+# Sur le PC :
+
+ssh-keygen -t ed25519 -C "pascal.vergnory@orange.fr"
+cat ~/.ssh/id_ed25519.pub
+
+# (Copier dans le clipboard toute la ligne emise par la commande cat...)
+
+# Sur le site Github
+
+Icone de moi en haut à droite -> settings -> Access: SSH & GPG keys -> [New SSH key]
+  Title    : "Linux PC"
+  Key Type : Authentication key
+  Key      : (Coller ici la ligne copiee dans le clipboard)
+ 
+#--------------------------------------------------
+#    Creation du repo "chess" sur github
+#--------------------------------------------------
+
+# Via le browser sur https://github.com/ :
+
+# Se logger, puis
+
+Repositories -> [New]
+  Repository name: chess
+  (o) Public
+  [Create Repository]
+
+# Sur le PC:
+
+git init
+git config --global user.email "pascal.vergnory@orange.fr"
+git config --global user.name "Pascal-Vergnory"
+
+git add src/*.c
+git add src/*.h
+git add build
+git add build.bat
+git add resources/*
+git add README.md 
+git commit -m "first commit"
+git branch -M main
+
+git remote add origin git@github.com:Pascal-Vergnory/chess.git
+git push -u origin main
+
+git add src/openings.txt
+git commit -m "add openings file"
+
