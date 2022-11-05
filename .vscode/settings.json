@@ -1,0 +1,6 @@
+{
+    "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, UseTab: Never, IndentWidth: 4, TabWidth: 4, IndentCaseLabels: false, ColumnLimit: 0, AccessModifierOffset: -4, NamespaceIndentation: All, FixNamespaceComments: false, AllowShortIfStatementsOnASingleLine: AllIfsAndElse, AllowShortBlocksOnASingleLine: Always, AllowShortLoopsOnASingleLine: true, BreakBeforeBraces: Stroustrup, AlignConsecutiveMacros: true, AlignConsecutiveAssignments: true, AlignArrayOfStructures: Right }",
+    "files.associations": {
+        "common.h": "c"
+    }
+}

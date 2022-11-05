@@ -16,6 +16,7 @@
 #define PAT_GS   4
 #define THINK_GS 5
 #define ANIM_GS  6
+#define QUIT_GS  7
 
 // Common variables : game settings
 

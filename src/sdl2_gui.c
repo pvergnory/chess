@@ -14,12 +14,6 @@ char* message[7] = {
     "Thinking...",
     "Playing this !"};
 
-int engine_is_black;
-
-//------------------------------------------------------------------------------------
-// Communication between 2 instances of the game
-//------------------------------------------------------------------------------------
-
 void log_info(const char* str)
 {
     fputs(str, stdout);
@@ -29,6 +23,10 @@ void send_str(const char* str)
 {
     fputs(str, stdout);
 }
+
+//------------------------------------------------------------------------------------
+// Communication between 2 instances of the game
+//------------------------------------------------------------------------------------
 
 static void init_communications(void)
 {
@@ -309,10 +307,10 @@ static void display_board()
     }
 }
 
-#define MOUSE_OVER_NEW  1
-#define MOUSE_OVER_SAVE 2
-#define MOUSE_OVER_LOAD 3
-#define MOUSE_OVER_YOU  4
+#define MOUSE_OVER_YOU  1
+#define MOUSE_OVER_NEW  2
+#define MOUSE_OVER_SAVE 3
+#define MOUSE_OVER_LOAD 4
 #define MOUSE_OVER_BOOK 5
 #define MOUSE_OVER_RAND 6
 #define MOUSE_OVER_VERB 7
@@ -403,7 +401,7 @@ static void debug_actions(char ch)
 }
 
 //------------------------------------------------------------------------------------
-// Get the user move
+// Handle external actions (user, other program)
 //------------------------------------------------------------------------------------
 
 static void get_piece_from(int sq64, char* piece)
@@ -438,86 +436,41 @@ static int get_move_to(int from64, int to64, char* piece, char* move)
     return 1;
 }
 
-//------------------------------------------------------------------------------------
-// Main: program entry, initial setup and then game loop
-//------------------------------------------------------------------------------------
-
-int main(int argc, char* argv[])
+static int handle_user_turn( char* move)
 {
-    (void)argc;
-
-    int mouse_over = 0;
-    char piece     = 0;
+    char piece = 0;
     int from64 = 0, to64 = 0;
-    char move[8];
-
-    char* name;
-    if ((name = strrchr(argv[0], '/'))) name++;        // Linux
-    else if ((name = strrchr(argv[0], '\\'))) name++;  // Windows
-    else name = argv[0];
-
-    init_game(NULL);
-    engine_is_black = 1;
-    randomize = 1;
-    graphical_inits(name);
-    init_communications();
+    int mouse_over;
 
     while (1) {
         // Refresh the display
         mouse_over = display_all(piece, 0, 0);
 
-        memset(move, 0, sizeof(move));
-
         // Wait for an event
         SDL_Event event;
         while (SDL_WaitEventTimeout(&event, 20) == 0) {
             // While waiting for an event, check if a program sent us its move
-            if (receive_move(move)) {
-                if (try_move(move)) {
-                    game_state = ANIM_GS;
-                    goto think;
-                }
-            }
+            if (receive_move(move))
+                if (try_move(move)) return ANIM_GS;
         }
 
         // Event is 'Quit'
-        if (event.type == SDL_QUIT) {
-            graphical_closes();
-            return 0;
-        }
+        if (event.type == SDL_QUIT) return QUIT_GS;
 
         // Event is a mouse click
         if (event.type == SDL_MOUSEBUTTONDOWN) {
             // handle mouse over a button
             switch (mouse_over) {
-            case MOUSE_OVER_NEW:
-                init_game(NULL);
-                engine_is_black = 1;
-                continue;
-            case MOUSE_OVER_SAVE:
-                mouse_over = display_all(0, 0, 0);
-                save_game();
-                continue;
-            case MOUSE_OVER_LOAD:
-                mouse_over = display_all(0, 0, 0);
-                load_game();
-                continue;
-            case MOUSE_OVER_YOU:
-                engine_is_black = play & 1;
-                init_communications();
-                game_state = THINK_GS;
-                break;
-            case MOUSE_OVER_BOOK:
-                use_book = 1 - use_book;
-                continue;
-            case MOUSE_OVER_RAND:
-                randomize = 1 - randomize;
-                continue;
-            case MOUSE_OVER_VERB:
-                verbose = 1 - verbose;
-                continue;
+            case MOUSE_OVER_YOU: return THINK_GS;
+            case MOUSE_OVER_NEW: init_game(NULL); break;
+            case MOUSE_OVER_SAVE: save_game(); break;
+            case MOUSE_OVER_LOAD: load_game(); break;
+            case MOUSE_OVER_BOOK: use_book = !use_book; break;
+            case MOUSE_OVER_RAND: randomize = !randomize; break;
+            case MOUSE_OVER_VERB: verbose = !verbose; break;
 
-            default:  // handle mouse over the board
+            // handle mouse over the board
+            default:
                 from64 = mouse_to_sq64(event.button.x, event.button.y);
                 get_piece_from(from64, &piece);
             }
@@ -525,45 +478,64 @@ int main(int argc, char* argv[])
         else if (event.type == SDL_MOUSEBUTTONUP) {
             to64 = mouse_to_sq64(event.button.x, event.button.y);
             if (get_move_to(from64, to64, &piece, move))
-                if (try_move(move)) game_state = THINK_GS;
+                if (try_move(move)) return THINK_GS;
         }
 
         // Event is a keyboard input
         else if (event.type == SDL_KEYDOWN) {
-            if (event.key.keysym.sym == SDLK_LEFT) {  // undo
+            if (event.key.keysym.sym == SDLK_LEFT) {        // undo
                 user_undo_move();
-                piece      = 0;
-                game_state = WAIT_GS;
                 init_communications();
             }
-            if (event.key.keysym.sym == SDLK_RIGHT) {  // redo
+            else if (event.key.keysym.sym == SDLK_RIGHT) {  // redo
                 user_redo_move();
-                piece      = 0;
-                game_state = WAIT_GS;
-                init_communications();
             }
-            if (event.key.keysym.sym <= 'z') {
+            else if (event.key.keysym.sym <= 'z') {         // debug
                 char ch = (char)(event.key.keysym.sym);
                 if (event.key.keysym.mod & KMOD_SHIFT) ch += ('A' - 'a');
                 debug_actions(ch);
             }
         }
-think:
-        // To the program to play
-        if (game_state >= THINK_GS) {
-            if (game_state == ANIM_GS) {
-                move_animation(move);
-                game_state = THINK_GS;
-            }
-            piece = 0;
-            display_all(0, 0, 0);
+    }
+}
 
-            compute_next_move();
-            if (game_state <= MAT_GS) {
-                transmit_move(engine_move_str);
-                move_animation(engine_move_str);
-            }
+//------------------------------------------------------------------------------------
+// Main: program entry, initial setup and then game loop
+//------------------------------------------------------------------------------------
+
+int main(int argc, char* argv[])
+{
+    (void)argc;
+    char move[8];
+
+    // A few inits
+    char* name;
+    if ((name = strrchr(argv[0], '/'))) name++;        // Linux
+    else if ((name = strrchr(argv[0], '\\'))) name++;  // Windows
+    else name = argv[0];
+    graphical_inits(name);
+    init_game(NULL);
+    randomize = 1;
+    init_communications();
+
+    // The game loop
+    while (1) {
+        // To the user to play
+        game_state = handle_user_turn(move);
+        if (game_state == QUIT_GS) break;
+        if (game_state == ANIM_GS) {
+            move_animation(move);
+            game_state = THINK_GS;
+        }
+        display_all(0, 0, 0);
+
+        // To the program to play
+        compute_next_move();
+        if (game_state <= MAT_GS) {
+            transmit_move(engine_move_str);
+            move_animation(engine_move_str);
         }
     }
+    graphical_closes();
     return 0;
 }
