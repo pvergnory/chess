@@ -773,7 +773,7 @@ int in_check_mat(int side)
     struct move_t list_of_moves[896];
     struct move_t *p;
 
-    if (!in_check(side, king_pos[play])) return 0;  // not even in check
+    if (!in_check(side, king_pos[play])) return WAIT_GS;  // not even in check
 
     // List all possible moves
     move_ptr = list_of_moves;
@@ -785,9 +785,9 @@ int in_check_mat(int side)
         do_move(*p);
         check = in_check(side, king_pos[play + 1]);
         undo_move();
-        if (!check) return 1;  // in check but not mat
+        if (!check) return CHECK_GS;  // in check but not mat
     }
-    return 2;  // mat
+    return MAT_GS;  // mat
 }
 
 //------------------------------------------------------------------------------------
@@ -912,7 +912,7 @@ int nega_alpha_beta(int level, int a, int b, int side, struct move_t *upper_sequ
     struct move_t move, mm_move;
     mm_move.val = 0;
 
-    if ((check = in_check_mat(side)) >= 2) goto end;
+    if ((check = in_check_mat(side)) == MAT_GS) goto end;
 
     // Last level: evaluate the board
     int depth = level_max - level;
