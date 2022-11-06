@@ -37,14 +37,16 @@ static void init_communications(void)
 
 static void transmit_move(char* move)
 {
-    char* file_name = (play & 1) ? "white_move.chs" : "black_move.chs";
+    remove("white_move.chs");
+    remove("black_move.chs");
+
     FILE* f = fopen("move.chs", "w");
     if (f == NULL) return;
-
     fprintf(f, "%d: %s\n", play - 1, move);
     fflush(f);
     fclose(f);
-    rename("move.chs", file_name);
+
+    rename("move.chs", (play & 1) ? "white_move.chs" : "black_move.chs");
 }
 
 static int receive_move(char* move)
@@ -537,5 +539,6 @@ int main(int argc, char* argv[])
         }
     }
     graphical_closes();
+    init_communications();
     return 0;
 }
