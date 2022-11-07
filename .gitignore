@@ -12,3 +12,7 @@ game.chess
 move.chs
 white_move.chs
 black_move.chs
+SDL2.dll
+SDL2_image.dll
+SDL2_ttf.dll
+libfreetype-6.dll
