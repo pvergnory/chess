@@ -794,7 +794,6 @@ static int in_check_mat(int side)
 {
     if (!in_check(side, king_pos[play])) return WAIT_GS;  // not even in check
     return in_mat(side);
-
 }
 
 //------------------------------------------------------------------------------------
