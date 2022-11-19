@@ -871,11 +871,11 @@ int evaluate(int side, int a, int b)
             res += black_pos_bonus[sq];  // (will be inverted if side = WHITE)
 
             // Discourage own piece in front of pawn (including double pawn)
-            if (piece == W_PAWN && B(sq + 10) & WHITE) res += 9;
+            if (piece == B_PAWN && B(sq - 10) & BLACK) res -= 9;
         }
         else if (piece & WHITE) {
             res -= white_pos_bonus[sq];
-            if (piece == B_PAWN && B(sq - 10) & BLACK) res -= 9;
+            if (piece == W_PAWN && B(sq + 10) & WHITE) res += 9;
         }
     }
 
