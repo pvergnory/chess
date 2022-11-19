@@ -97,8 +97,6 @@ struct move_t first_ply[6] = {
     { .from = 6, .to = 25}
 };
 
-long total_ms = 0;
-
 struct move_t *move_ptr;
 
 // Move choosen by the chess engine
@@ -172,8 +170,6 @@ struct prev_move_t prev_moves[PM_NB];
 
 int nb_dedup;
 int nb_hash;
-
-struct timeval tv0;
 
 // Opening moves book
 #include "book.h"
@@ -257,11 +253,17 @@ char *get_move_str(int p)
     return move_str(moved[p]);
 }
 
-long diff_ms(struct timeval x, struct timeval y)
+struct timeval tv0, tv1;
+long total_ms = 0;
+
+#define start_chrono() gettimeofday(&tv0, NULL);
+
+static long get_chrono(void)
 {
     long s, us;
-    s  = x.tv_sec - y.tv_sec;
-    us = x.tv_usec - y.tv_usec;
+    gettimeofday(&tv1, NULL);
+    s  = tv1.tv_sec - tv0.tv_sec;
+    us = tv1.tv_usec - tv0.tv_usec;
     return 1000 * s + us / 1000;
 }
 
@@ -767,13 +769,11 @@ void list_moves(int pos)
 // Test both check and check & mat
 //------------------------------------------------------------------------------------
 
-int in_check_mat(int side)
+static int in_mat(int side)
 {
     int from, check;
     struct move_t list_of_moves[896];
     struct move_t *p;
-
-    if (!in_check(side, king_pos[play])) return WAIT_GS;  // not even in check
 
     // List all possible moves
     move_ptr = list_of_moves;
@@ -788,6 +788,13 @@ int in_check_mat(int side)
         if (!check) return CHECK_GS;  // in check but not mat
     }
     return MAT_GS;  // mat
+}
+
+static int in_check_mat(int side)
+{
+    if (!in_check(side, king_pos[play])) return WAIT_GS;  // not even in check
+    return in_mat(side);
+
 }
 
 //------------------------------------------------------------------------------------
@@ -828,9 +835,7 @@ int try_move(char *move_str)
     moved[play - 1].val = m->val;
     nb_plays            = play;
 
-    char msg[24];
-    sprintf(msg, "Play %d: <- %s\n", play, move_str);
-    log_info(msg);
+    log_info_va("Play %d: <- %s\n", play, move_str);
     return 1;
 }
 
@@ -840,7 +845,7 @@ int try_move(char *move_str)
 
 int evaluate(int side, int a, int b)
 {
-    int sq, piece, res = 0;
+    int sq, piece, res;
 
     // Take the total of the values of the pieces present on the board
     res = board_val[play];
@@ -906,7 +911,7 @@ int next_ab_moves_time_check = 0;
 int nega_alpha_beta(int level, int a, int b, int side, struct move_t *upper_sequence)
 {
     int i, p, from, check, max = -300000, eval = 0, one_possible = 0;
-    struct move_t list_of_moves[336];
+    struct move_t list_of_moves[256];
     struct move_t sequence[200];
     struct move_t *m;
     struct move_t move, mm_move;
@@ -1079,10 +1084,8 @@ found:
 
         // Every 10000 moves, look at elapsed time
         if (ab_moves > next_ab_moves_time_check) {
-            struct timeval tv1;
-            gettimeofday(&tv1, NULL);
-            // if time's up, stop search and keep previuos lower depth search move
-            if (diff_ms(tv1, tv0) > time_budget_ms) return max;
+            // if time's up, stop search and keep previous lower depth search move
+            if (get_chrono() >= time_budget_ms) return max;
             next_ab_moves_time_check = ab_moves + 10000;
         }
     }
@@ -1129,28 +1132,24 @@ void compute_next_move(void)
         // compute the board hash. Seed = castles + en_passant + color to play...
         uint32_t seed = (en_passant[play] << 24) + (castles[play] << 16) + (castles[play + 1] << 8) + (play & 1);
         uint64_t hash = pengyhash((void *)board_ptr, BOARD_SIZE - 2, seed);
-        char str[64];
 #ifdef __MINGW32__
-        sprintf(str, "Look in book hash 0x%0llX : ", hash);
+        log_info_va("Look in book hash 0x%0llX : ", hash);
 #else
-        sprintf(str, "Look in book hash 0x%0lX : ", hash);
+        log_info_va("Look in book hash 0x%0lX : ", hash);
 #endif
-        log_info(str);
 
         int b, ns = 1;
         for (b = hash & BOOK_MSK; hash != book[b].hash && book[b].nb_moves; b = (b + 1) & BOOK_MSK, ns++) continue;
         if (hash == book[b].hash) {
-            sprintf(str, "found at index %d (%d searches)\n", b, ns);
-            log_info(str);
+            log_info_va("found at index %d (%d searches)\n", b, ns);
             engine_move.val = book[b].move[rand() % book[b].nb_moves];
             goto play_the_prefered_move;
         }
         log_info("not found\n");
     }
 
-    struct timeval tv1;
     long elapsed_ms;
-    gettimeofday(&tv0, NULL);
+    start_chrono();
 
     // Search deeper and deeper the best move,
     // starting with the previous "best" move to improve prunning
@@ -1173,17 +1172,12 @@ void compute_next_move(void)
             return;
         }
 
-        gettimeofday(&tv1, NULL);
-        elapsed_ms = diff_ms(tv1, tv0);
+        elapsed_ms = get_chrono();
 
         if (verbose) {
-            char str[64];
-            sprintf(str, "%2d %7d %4ld %8d ", level_max, max, elapsed_ms / 10, ab_moves);
-            send_str(str);
-            for (int l = 0; l < level_max && l < 13; l++) {
-                send_str(" ");
-                send_str(move_str(best_sequence[l]));
-            }
+            send_str_va("%2d %7d %4ld %8d ", level_max, max, elapsed_ms / 10, ab_moves);
+            for (int l = 0; l < level_max && l < 13; l++)
+                send_str_va(" %s", move_str(best_sequence[l]));
             send_str("\n");
         }
 
@@ -1191,16 +1185,17 @@ void compute_next_move(void)
         if (max > 199800 || max < -199800) break;
 
         memcpy(last_best_sequence, best_sequence, level_max * sizeof(move_t));  // reductible...
-    } while (elapsed_ms < (time_budget_ms / 2) && level_max <= level_max_max);
+    }
+    while (elapsed_ms < (time_budget_ms / 2) && level_max <= level_max_max);
     total_ms += elapsed_ms;
 
 play_the_prefered_move:
     do_move(engine_move);
     nb_plays        = play;
     engine_move_str = move_str(engine_move);
-    char msg[24];
-    sprintf(msg, "Play %d: -> %s\n", play, engine_move_str);
-    log_info(msg);
+
+    log_info_va("Play %d: -> %s\n", play, engine_move_str);
+    log_info_va("Total think time: %ld min %ld sec %ld ms\n", total_ms/60000, (total_ms/1000)%60, total_ms%1000);
 
     // Return with the opponent side situation
     game_state = in_check_mat(engine_side ^ COLORS);

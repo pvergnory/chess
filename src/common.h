@@ -51,4 +51,7 @@ void  user_redo_move( void );
 void log_info( const char* str );
 void send_str( const char* str );
 
+#define log_info_va( ... ) { char str_va[64]; sprintf( str_va, __VA_ARGS__); log_info(str_va); }
+#define send_str_va( ... ) { char str_va[64]; sprintf( str_va, __VA_ARGS__); send_str(str_va); }
+
 #endif
