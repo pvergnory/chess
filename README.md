@@ -1,11 +1,12 @@
 # chess and chessx
 
+A small chess engine, written in C, with a graphical interface (chess) or an interface to XBoard/WinBoard (chessx) !
+You can play against it, or you can even let it play against it-self !
+
 ## chess features
 
-- Engine + Graphical User Interface (chess) and
-- Engine + XBOARD/WINBOARD interface (chessx)
-- 10x10 bytes board representation
-- Entire board copy at each new move, so move undo is very simple
+- 10x10 bytes board representation: the 8x8 board + 1 square-thick boarder aroud it
+- Entire board copy at each new move, so undoing a move is very simple
 - Negamax search with alpha beta pruning
 - Iterative deepening
 - Move ordering : Principle Variation move, killer move, MVV/LVA attacks, other moves
@@ -19,7 +20,7 @@
 Under Windows, msys64 and MINGW64 must be installed.
 Under Linux, gcc must be installed
 
-The GUI uses the SDL2 graphical library
+Under the two platforms, the GUI uses the SDL2 graphical library
 
 ## Building chess and chessx
 
