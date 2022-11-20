@@ -4,7 +4,7 @@ A small chess engine, written in C, with a graphical user interface (**chess**) 
 
 ## chess features
 
-- 10x10 bytes board representation: the 8x8 board + a 1-square thick boarder around it
+- 10x10 bytes board representation: the 8x8 board + a 1-square thick border around it
 - Entire board copy at each new move, so undoing a move is very simple
 - Negamax search with alpha beta pruning
 - Iterative deepening
