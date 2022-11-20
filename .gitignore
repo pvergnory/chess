@@ -7,3 +7,4 @@ game.chess
 move.chs
 white_move.chs
 black_move.chs
+src/book.h
