@@ -1,7 +1,6 @@
 # chess and chessx
 
-A small chess engine, written in C, with a graphical interface (chess) or an interface to XBoard/WinBoard (chessx) !
-You can play against it, or you can even let it play against it-self !
+A small chess engine, written in C, with a graphical user interface (**chess**) or with an interface to XBoard/WinBoard (**chessx**). You can play against it, or you can even let it play against it-self !
 
 ## chess features
 
@@ -26,7 +25,7 @@ Under the two platforms, the GUI uses the SDL2 graphical library
 
 To build the two engines, use `build.bat` on Windows or `build` on Linux without any argument.
 
-## Using the engine version that includes the GUI (chess under linux, chess.exe under Windows)
+## Using chess (Linux), or chess.exe (Windows)
 
 The executable needs resources grouped in the 'resources' folder.
 
@@ -40,9 +39,8 @@ Use the mouse to move a piece, use the left arrow and right arrow keys to respec
 
 You can play against the engine or you can start the engine twice (in two separate CMD or terminal windows but in the same directory) and make both instances play against each other! For this, click on "TO PLAY" on one of the instances.
 
-## Using the GUI-less engine version (chessx under linux, chessx.exe under Windows)
+## Using GUI-less engine chessx (linux) or chessx.exe (Windows)
 
 Appart from the resources grouped in the 'resources' folder, the GUI-less engine does not need any additional file.
 
 Start XBOARD under linux (or WINBOARD under Windows). Via the GUI, add the engine and its path in the list of engines (to be done once only). Select the engine and play !
-
