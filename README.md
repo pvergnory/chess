@@ -5,11 +5,11 @@ You can play against it, or you can even let it play against it-self !
 
 ## chess features
 
-- 10x10 bytes board representation: the 8x8 board + 1 square-thick boarder aroud it
+- 10x10 bytes board representation: the 8x8 board + a 1-square thick boarder around it
 - Entire board copy at each new move, so undoing a move is very simple
 - Negamax search with alpha beta pruning
 - Iterative deepening
-- Move ordering : Principle Variation move, killer move, MVV/LVA attacks, other moves
+- Move ordering : Principal Variation move, then "killer move", then MVV/LVA attacks, then other moves
 - Transposition table (using Pengy hash)
 - Evaluation pruning
 - Futility prunning
@@ -24,13 +24,7 @@ Under the two platforms, the GUI uses the SDL2 graphical library
 
 ## Building chess and chessx
 
-To build the two engines, use build.bat on Windows or build on Linux without any argument.
-
-On Windows: 
-build
-
-On Linux: 
-./build
+To build the two engines, use `build.bat` on Windows or `build` on Linux without any argument.
 
 ## Using the engine version that includes the GUI (chess under linux, chess.exe under Windows)
 
