@@ -8,7 +8,7 @@
 @echo.
 @echo Compile the chess engine with an SDL2-based GUI
 @echo -----------------------------------------------
-@gcc -g src/chess.c src/sdl2_gui.c SDL2_image.dll SDL2_ttf.dll libfreetype-6.dll -o chess.exe -Wall -Wextra -Wpedantic -Wimplicit-fallthrough=0 -lmingw32 -lSDL2main -lSDL2 -O3
+@gcc -g src/chess.c src/engine.c SDL2_image.dll SDL2_ttf.dll libfreetype-6.dll -o chess.exe -Wall -Wextra -Wpedantic -Wimplicit-fallthrough=0 -lmingw32 -lSDL2main -lSDL2 -O3
 @echo.
 @echo Archive all the files needed to run it
 @echo --------------------------------------
@@ -16,5 +16,5 @@
 @echo.
 @echo Compile the chess engine for XBOARD
 @echo -----------------------------------
-@gcc src/chess.c src/xb_if.c -o chessx.exe -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic -lmingw32 -lpthread -O3
+@gcc src/chessx.c src/engine.c -o chessx.exe -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic -lmingw32 -lpthread -O3
 

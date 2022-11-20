@@ -12,7 +12,7 @@ cd ..
 echo
 echo "Compile the SDL2 standalone game"
 echo "--------------------------------"
-gcc src/chess.c src/sdl2_gui.c -o chess -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic `sdl2-config --libs` -lpthread -lSDL2_image -lSDL2_ttf -O3 -g
+gcc src/chess.c src/engine.c -o chess -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic `sdl2-config --libs` -lpthread -lSDL2_image -lSDL2_ttf -O3 -g
 
 echo
 echo "Archive all the files needed to run it"
@@ -22,6 +22,6 @@ tar -czvf chess.tar.gz chess resources
 echo
 echo "Compile for XBOARD"
 echo "------------------"
-gcc src/chess.c src/xb_if.c -o chessx -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic -lpthread -O3
+gcc src/chessx.c src/engine.c -o chessx -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic -lpthread -O3
 echo
 
