@@ -39,7 +39,7 @@ Use the mouse to move a piece, use the left arrow and right arrow keys to respec
 
 You can play against the engine or you can start the engine twice (in two separate CMD or terminal windows but in the same directory) and make both instances play against each other! For this, click on "TO PLAY" on one of the instances.
 
-## Using GUI-less engine chessx (linux) or chessx.exe (Windows)
+## Using GUI-less engine chessx (Linux) or chessx.exe (Windows)
 
 The GUI-less engine does not need any additional file. It is totally standalone.
 
