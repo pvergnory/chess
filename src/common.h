@@ -18,6 +18,8 @@
 #define ANIM_GS  6
 #define QUIT_GS  7
 
+#define LEVEL_MAX 63
+
 // Common variables : game settings
 
 extern int   use_book;

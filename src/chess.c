@@ -44,8 +44,7 @@ char *board_ptr = BOARD0;
 #define B(x)        (*(board_ptr + (x)))
 #define Board(l, c) B(10 * (l) + (c))
 
-// Move structure
-
+// Move structure and move tables
 #define PROMOTE    1
 #define EN_PASSANT 2
 #define L_ROOK     3
@@ -57,7 +56,7 @@ char *board_ptr = BOARD0;
 #define WL_CASTLE  9
 #define W_PAWN2    10
 
-struct move_t {
+typedef struct {
     union {
         unsigned int val;
         struct {
@@ -69,10 +68,29 @@ struct move_t {
     };
 } move_t;
 
-struct move_t moved[MAX_TURNS];
-int board_val[MAX_TURNS];
-int nb_pieces[MAX_TURNS];
+move_t best_sequence[LEVEL_MAX+1];
+move_t best_move[LEVEL_MAX+1];
 
+// Transposition table to stores move choices for each encountered board situations
+#define TABLE_ENTRIES (1 << 24) // 16 Mega entries
+
+#define NEW_BOARD   0
+#define OTHER_DEPTH 1
+#define UPPER_BOUND 2
+#define LOWER_BOUND 3
+#define EXACT_VALUE 4
+
+typedef struct {
+    uint64_t hash;  // Pengy hash
+    move_t   move;
+    int32_t  eval;
+    int16_t  depth;
+    char     flag;
+} table_t;
+
+table_t table[TABLE_ENTRIES];
+
+// Move choosen by the chess engine
 char *engine_move_str;
 
 int game_state = WAIT_GS;
@@ -83,12 +101,12 @@ int mv50            = 0;
 int verbose         = 1;
 int use_book        = 1;
 int randomize       = 0;
-int level_max_max   = 63;
+int level_max_max   = LEVEL_MAX;
 long time_budget_ms = 2000;
 char engine_side;
 
 // The first moves we accept to play
-struct move_t first_ply[6] = {
+move_t first_ply[6] = {
     {.from = 12, .to = 32},
     {.from = 13, .to = 33},
     {.from = 14, .to = 34},
@@ -97,10 +115,12 @@ struct move_t first_ply[6] = {
     { .from = 6, .to = 25}
 };
 
-struct move_t *move_ptr;
+move_t *move_ptr;
 
-// Move choosen by the chess engine
-struct move_t engine_move;
+// Track of the situation at all turns
+move_t moved[MAX_TURNS];
+int board_val[MAX_TURNS];
+int nb_pieces[MAX_TURNS];
 
 // Possible place to eat "en passant" a pawn that moved two rows.
 char en_passant[MAX_TURNS];
@@ -159,7 +179,7 @@ int king_pos_malus[BOARD_SIZE] = {
 // Misc conversion functions
 //------------------------------------------------------------------------------------
 
-static int str_to_move(char *str, struct move_t *m)
+static int str_to_move(char *str, move_t *m)
 {
     m->val = 0;
 
@@ -194,7 +214,7 @@ static int str_to_move(char *str, struct move_t *m)
 }
 
 char mv_str[8];
-static char *move_str(struct move_t m)
+static char *move_str(move_t m)
 {
     memset(mv_str, 0, sizeof(mv_str));
     if (m.val == 0) return "";
@@ -249,7 +269,7 @@ static long get_chrono(void)
 }
 
 //------------------------------------------------------------------------------------
-// Pengy hash used for the openings book
+// Pengy hash used for the openings book and transposition table
 //------------------------------------------------------------------------------------
 
 uint64_t pengyhash(const void *p, size_t size, uint32_t seed)
@@ -350,7 +370,9 @@ static void FEN_to_board(char *str)
 
 void init_game(char *FEN_string)
 {
-    memset(boards, STOP, sizeof(boards));
+    memset(boards, STOP, sizeof(boards));  // Set the boards to all borders
+    memset(table, 0, sizeof(table));       // Reset the transposition table
+
     if (FEN_string) FEN_to_board(FEN_string);
     else FEN_to_board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
@@ -358,14 +380,14 @@ void init_game(char *FEN_string)
     time_budget_ms = 2000;
     total_ms       = 0;
     randomize      = 0;
-    level_max_max  = 63;
+    level_max_max  = LEVEL_MAX;
 }
 
 //------------------------------------------------------------------------------------
 // Make the move, undo it, redo it
 //------------------------------------------------------------------------------------
 
-void do_move(struct move_t m)
+void do_move(move_t m)
 {
     // Remember the whole previous game to be able to undo the move
     memcpy(board_ptr + BOARD_AND_BORDER_SIZE, board_ptr, BOARD_SIZE);
@@ -459,7 +481,7 @@ void user_redo_move(void)
 int qb_inc[4] = {9, 11, -9, -11};
 int qr_inc[4] = {10, 1, -10, -1};
 
-int list_king_protectors(int side, int *king_protectors)
+static int list_king_protectors(int side, int *king_protectors)
 {
     int other = side ^ COLORS;
     int i, inc, p, k_pos = king_pos[play];
@@ -496,7 +518,7 @@ int list_king_protectors(int side, int *king_protectors)
     return king_protectors_nb;
 }
 
-int in_check(int side, int pos)
+static int in_check(int side, int pos)
 {
     char type;
     int p;
@@ -729,8 +751,8 @@ void list_moves(int pos)
 static int in_mat(int side)
 {
     int from, check;
-    struct move_t list_of_moves[896];
-    struct move_t *p;
+    move_t list_of_moves[256];
+    move_t *p;
 
     // List all possible moves
     move_ptr = list_of_moves;
@@ -759,7 +781,7 @@ static int in_check_mat(int side)
 
 int try_move(char *move_str)
 {
-    struct move_t move;
+    move_t move;
 
     if (str_to_move(move_str, &move) == 0) return -1;
 
@@ -769,12 +791,12 @@ int try_move(char *move_str)
     if ((B(move.to) & color) == color) return 0;
 
     // Verify if it is a pseudo-legal one
-    struct move_t list_of_moves[28];
+    move_t list_of_moves[28];
     memset(list_of_moves, 0, sizeof(list_of_moves));
     move_ptr = list_of_moves;
     list_moves(move.from);
 
-    struct move_t *m;
+    move_t *m;
     for (m = list_of_moves; m < move_ptr; m++) if (m->to == move.to) break;
     if (m == move_ptr) return 0;
 
@@ -812,10 +834,10 @@ int evaluate(int side, int a, int b)
         res -= piece_value[(int)B(moved[play - 1].to)] / 2;
 
     if (side == BLACK) {
-        if (res > b + 200 || res < a - 200) return res;
+        if (res > b + 170 || res < a - 170) return res;
     }
     else {
-        if (-res > b + 200 || -res < a - 200) return -res;
+        if (-res > b + 170 || -res < a - 170) return -res;
     }
 
     // Center occupation
@@ -854,30 +876,147 @@ int evaluate(int side, int a, int b)
 }
 
 //------------------------------------------------------------------------------------
+// Transposition Table management
+//------------------------------------------------------------------------------------
+
+int nb_dedup;
+int nb_hash;
+
+static int get_table_entry(int depth, int side, int* flag, int* eval)
+{
+    move_t move;
+
+    // compute the hash of the board. Seed = castles + en_passant location...
+    uint32_t seed = (en_passant[play] << 24) + (castles[play] << 16) + (castles[play + 1] << 8) + (play & 1);
+    uint64_t hash = pengyhash((void *)board_ptr, BOARD_SIZE - 2, seed);
+
+    // Look if the hash is in the transposition table
+    int h = hash & (TABLE_ENTRIES-1);
+    if (table[h].hash == hash) {
+
+        // To reduce hash collisions, reject an entry with impossible move
+        move = table[h].move;
+        if ((B(move.from) & COLORS) == side && B(move.to) == move.eaten) {
+
+            // Only entries with same depth search are usable, but a move
+            // from other depth search is interesting (example: PV move)
+            *flag =  (table[h].depth == depth) ? table[h].flag : OTHER_DEPTH;
+
+            *eval = table[h].eval;
+            return h;
+        }
+    }
+
+    // The hash was not present or was for another board. Set the table entry
+    table[h].hash     = hash;
+    table[h].move.val = 0;
+    table[h].flag     = NEW_BOARD;
+    *flag             = NEW_BOARD;
+    nb_hash++;
+    return h;
+}
+
+//------------------------------------------------------------------------------------
+// Sort moves in descending order of interest to improve alpha-beta prunning
+//------------------------------------------------------------------------------------
+
+// Initial indexes of attacks in the sparsely filled ordered attack list.
+// Attacks ordering is "most valuable victim by least valuable attacker" first.
+// Index starts at 2 to leave place for the PV move and the killer move.
+// Use mv_i0 as follows: mv_i0[8*attacker_piece_type + victim_piece_type]. Up to 8 queens !
+static int mv_i0[64] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 160, 2, 130, 101, 71, 2, 
+    0, 0, 218, 2, 158, 129, 99, 70, 
+    0, 0, 174, 2, 134, 105, 75, 16, 
+    0, 0, 184, 2, 138, 109, 79, 26, 
+    0, 0, 192, 2, 140, 111, 81, 34, 
+    0, 0, 196, 2, 144, 115, 85, 48
+};
+#define AFTER_ATTACKS 225
+
+static void fast_sort_moves(move_t* list, int nb_moves, int level, move_t table_move)
+{
+    unsigned int sorted_a[256] = { 0 };
+    unsigned int non_a[256];
+    int mv_i[64];
+    int i, s, n, na = 0;
+
+    // Initialize the attack indices pointing to the sparse ordered attack list
+    memcpy(mv_i, mv_i0, sizeof(mv_i0));
+
+    // get all move scores
+    for (n = 0; n < nb_moves; n++) {
+
+        unsigned int val = list[n].val;
+
+        // Give the 1st rank to the Transition Table move (PV move or other)
+        if (val == table_move.val)
+            sorted_a[0] = val;
+
+        // Give the 2nd rank to the previous best move at this level (the "killer" move)
+        else if (val == best_move[level].val)
+            sorted_a[1] = val;
+
+        // place the attacking moves in a sparsely filled, but ordered list
+        else if (list[n].eaten) {
+            // get the index in the mv_i[] table (8*attacker + victim) 
+            int a = ((B(list[n].from) & 7)<<3) + (list[n].eaten & 7);
+            // mv_i[a] gives the index to the sparsely filled list for this attack
+            sorted_a[mv_i[a]++] = val;
+        }
+        // place the non attacking moves in another list
+        else non_a[na++] = val;
+    }
+    // compact the sorted attacks list
+    for (i = 0, s = 0; i < AFTER_ATTACKS; i++) if (sorted_a[i]) sorted_a[s++] = sorted_a[i];
+
+    // Finally concatenate the sorted attacks and the non attacks
+    if (s) memcpy(list, sorted_a, s*sizeof(int));
+    if (na) memcpy(list + s, non_a, na*sizeof(int));
+}
+
+//------------------------------------------------------------------------------------
 // The min-max recursive algo with alpha-beta pruning
 //------------------------------------------------------------------------------------
 
-struct move_t best_sequence[64];
-struct move_t last_best_sequence[64];
-struct move_t best_move[64];
 int level_max;
-int ab_moves                 = 0;
-int next_ab_moves_time_check = 0;
+int ab_moves, next_ab_moves_time_check;
 
-int nega_alpha_beta(int level, int a, int b, int side, struct move_t *upper_sequence)
+int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
 {
-    int i, p, from, check, max = -300000, eval = 0, one_possible = 0;
-    struct move_t list_of_moves[256];
-    struct move_t sequence[200];
-    struct move_t *m;
-    struct move_t move, mm_move;
+    int i, p, from, check, flag, eval, max = -300000, one_possible = 0;
+    move_t list_of_moves[256];
+    move_t sequence[LEVEL_MAX];
+    move_t *m;
+    move_t mm_move;
     mm_move.val = 0;
 
-    if ((check = in_check_mat(side)) == MAT_GS) goto end;
+    if ((check = in_check_mat(side)) == MAT_GS) return max;
 
     // Last level: evaluate the board
     int depth = level_max - level;
     if (depth == 0) return evaluate(side, a, b);
+
+    // Search the board in the transposition table
+    int h = get_table_entry(depth, side, &flag, &eval);
+
+    int old_a = a;
+    if (flag == LOWER_BOUND) {
+        if (a < eval) a = eval;
+    }
+    else if (flag == UPPER_BOUND) {
+        if (b > eval) b = eval;
+    }
+    if (flag == EXACT_VALUE || (a >= b && flag > OTHER_DEPTH)) {
+        nb_dedup++;
+        mm_move          = table[h].move;
+        best_move[level] = mm_move;
+        sequence[level]  = mm_move;
+        memcpy(upper_sequence, sequence, level_max * sizeof(move_t));  // reductible...
+        return eval;
+    }
 
     // Penalty on certain 1st moves
     int penalty = 0;
@@ -904,58 +1043,38 @@ int nega_alpha_beta(int level, int a, int b, int side, struct move_t *upper_sequ
         }
     }
 
-    // Try first the move from previous best sequence
-    if (last_best_sequence[level].val) {
-        mm_move                       = last_best_sequence[level];
-        last_best_sequence[level].val = 0;  // don't replay it on other sequences. It may be invalid !
-        do_move(mm_move);
-        ab_moves++;
-        max = -nega_alpha_beta(level + 1, -b, -a, side ^ COLORS, sequence) + penalty;
-        undo_move();
-        best_move[level] = mm_move;
-        sequence[level]  = mm_move;
-        memcpy(upper_sequence, sequence, level_max * sizeof(move_t));  // reductible...
-
-        if (max >= b) goto end;
-        if (max > a) a = max;  // a = max( a, max )
-        one_possible = 1;
+    // List all the pseudo legal moves
+    move_ptr = list_of_moves;
+    if (randomize) {
+        from = (((int)__rdtsc()) & 0x7FFFFFFF) % (BOARD_SIZE - 2);
+        for (i = 0; i < BOARD_SIZE - 2; i++, from++) {
+            if (from == BOARD_SIZE -2) from = 0;
+            if (B(from) & side) list_moves(from);
+        }
     }
+    else {
+        for (from = 0; from < BOARD_SIZE - 2; from++)
+            if (B(from) & side) list_moves(from);
+    }
+    int nb_of_moves = move_ptr - list_of_moves;
+    if (nb_of_moves == 0)
+        return (side == engine_side) ? -100000 : 100000; // Avoid "Pats"
 
+    // List king protectors: no king check verfification will be done on non-protectors moves
     int king_protectors[8];
     int king_protectors_nb = 0;
     if (!check) king_protectors_nb = list_king_protectors(side, &king_protectors[0]);
-
-    // List all the pseudo legal moves
-    move_ptr = list_of_moves;
-    for (from = 0; from < BOARD_SIZE - 2; from++)
-        if (B(from) & side) list_moves(from);
-    int nb_of_moves = move_ptr - list_of_moves;
-    if (nb_of_moves == 0) return (side == engine_side) ? -100000 : 100000; // Avoid "Pats"
-
-    // search the previous best move at this level in the list (the "killer" move)
-    if (best_move[level].val && best_move[level].val != mm_move.val) {
-        move.val = best_move[level].val;
-        for (i = 0; i < nb_of_moves; i++)
-            // if the "killer" move is one of the moves, try it first
-            if (list_of_moves[i].val == move.val) goto found;
-    }
-    // use __rdtsc() to randomly pick a first move in the list of possible ones
-    if (randomize) i = (((int)__rdtsc()) & 0x7FFFFFFF) % nb_of_moves;
-    else i = 0;
-
-found:
-    m = list_of_moves + i;
 
     // Set the Futility level
     int futility = 300000;  // by default, no futility
     if (depth == 1 && !check && nb_pieces[play] > 23)
         futility = 50 + ((side == BLACK) ? board_val[play] : -board_val[play]);
 
-    // Try each possible move
-    for (i = 0; i < nb_of_moves; i++, m++) {
-        if (m->from == NO_POSITION) m = list_of_moves;
+    // Sort the moves to maximize alpha beta pruning efficiency
+    fast_sort_moves(list_of_moves, nb_of_moves, level, table[h].move);
 
-        if (m->val == mm_move.val) continue;  // skip move already tried
+    // Try each possible move
+    for (m = list_of_moves; m->from != NO_POSITION; m++) {
 
         // Once the max level reached, only evaluate "eating" moves. We'll stop
         // on a "stablized" eating situation that will provide a better evaluation (algo 2)
@@ -995,6 +1114,13 @@ found:
         // undo the move to evaluate the others
         undo_move();
 
+        // Every 10000 moves, look at elapsed time
+        if (ab_moves > next_ab_moves_time_check) {
+            // if time's up, stop search and keep previous lower depth search move
+            if (get_chrono() >= time_budget_ms) return -400000;
+            next_ab_moves_time_check = ab_moves + 10000;
+        }
+
         // The player wants to maximize his score
         if (eval > max) {
             max              = eval;  // max = max( max, eval )
@@ -1003,22 +1129,20 @@ found:
             sequence[level]  = mm_move;
             memcpy(upper_sequence, sequence, level_max * sizeof(move_t));
 
-            if (max >= b) goto end;
+            if (max >= b) goto end_add_to_tt;
             if (max > a) a = max;
-        }
-
-        // Every 10000 moves, look at elapsed time
-        if (ab_moves > next_ab_moves_time_check) {
-            // if time's up, stop search and keep previous lower depth search move
-            if (get_chrono() >= time_budget_ms) return max;
-            next_ab_moves_time_check = ab_moves + 10000;
         }
     }
     if (one_possible == 0)
-        max = (side == engine_side) ? -100000 : 100000;  // Avoid "Pats"
+        return (side == engine_side) ? -100000 : 100000;  // Avoid "Pats"
 
-end:
-    if (level == 0 && mm_move.val) engine_move = mm_move;
+end_add_to_tt:
+    table[h].eval     = max;
+    table[h].move.val = mm_move.val;
+    table[h].depth    = depth;
+    if  (max <= old_a) table[h].flag = UPPER_BOUND;
+    else if (max >= b) table[h].flag = LOWER_BOUND;
+    else               table[h].flag = EXACT_VALUE;
     return max;
 }
 
@@ -1028,6 +1152,8 @@ end:
 
 void compute_next_move(void)
 {
+    move_t engine_move;
+
     engine_side = (play & 1) ? BLACK : WHITE;
 
     // Verify the situation...
@@ -1063,28 +1189,33 @@ void compute_next_move(void)
         log_info("not found\n");
     }
 
-    long elapsed_ms;
+    long prev_level_ms, level_ms = 0, elapsed_ms = 0;
     start_chrono();
 
     // Search deeper and deeper the best move,
     // starting with the previous "best" move to improve prunning
     level_max       = 0;
     engine_move.val = 0;
-    memset(best_move, 0, sizeof(best_move));
 
     do {
-        last_best_sequence[level_max].val = 0;
+        best_move[level_max].val = 0;
         level_max++;
         ab_moves                 = 0;
         next_ab_moves_time_check = ab_moves + 10000;
+        nb_dedup                 = 0;
+        nb_hash                  = 0;
 
         int max = nega_alpha_beta(0, -400000, 400000, engine_side, best_sequence);
+        if (max != -400000 && max != 400000) engine_move = best_sequence[0];
         if (engine_move.val == 0) {
             game_state = PAT_GS;
             return;
         }
 
+        prev_level_ms = level_ms;
+        level_ms = -elapsed_ms;
         elapsed_ms = get_chrono();
+        level_ms += elapsed_ms;
 
         if (verbose) {
             send_str_va("%2d %7d %4ld %8d ", level_max, max, elapsed_ms / 10, ab_moves);
@@ -1096,9 +1227,11 @@ void compute_next_move(void)
         // If a check-mat is un-avoidable, no need to think more
         if (max > 199800 || max < -199800) break;
 
-        memcpy(last_best_sequence, best_sequence, level_max * sizeof(move_t));  // reductible...
+        // Evaluate if we have time for the next search level, given current time expension per level
+        if (prev_level_ms)
+            if (time_budget_ms - elapsed_ms < (level_ms * level_ms) / prev_level_ms) break;
     }
-    while (elapsed_ms < (time_budget_ms / 2) && level_max <= level_max_max);
+    while (level_max <= LEVEL_MAX);
     total_ms += elapsed_ms;
 
 play_the_prefered_move:
@@ -1107,7 +1240,8 @@ play_the_prefered_move:
     engine_move_str = move_str(engine_move);
 
     log_info_va("Play %d: -> %s\n", play, engine_move_str);
-    log_info_va("Total think time: %ld min %ld sec %ld ms\n", total_ms/60000, (total_ms/1000)%60, total_ms%1000);
+    log_info_va("Table entries created: %d, Deduplications: %d\n", nb_hash, nb_dedup);
+    log_info_va("Total think time: %d min %d sec %d ms\n", (int)(total_ms/60000), (int)((total_ms/1000)%60), (int)(total_ms%1000));
 
     // Return with the opponent side situation
     game_state = in_check_mat(engine_side ^ COLORS);

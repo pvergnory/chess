@@ -132,7 +132,7 @@ int main(int argc, char* argv[])
         else if (!strcmp(cmd, "quit"))     break;
         else if (!strcmp(cmd, "force"))    go = 0;
         else if (!strcmp(cmd, "go"))     { go = 1; goto run_the_engine; }
-        else if (!strcmp(cmd, "sd"))     { level_max_max = atoi(arg); if (level_max_max > 63) level_max_max = 63; }
+        else if (!strcmp(cmd, "sd"))     { level_max_max = atoi(arg); if (level_max_max > LEVEL_MAX) level_max_max = LEVEL_MAX; }
         else if (!strcmp(cmd, "post"))     verbose = 1;
         else if (!strcmp(cmd, "nopost"))   verbose = 0;
         else if (!strcmp(cmd, "setboard")) init_game( arg );
