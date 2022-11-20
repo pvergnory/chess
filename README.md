@@ -27,9 +27,9 @@ To build the two engines, use `build.bat` on Windows or `build` on Linux without
 
 ## Using chess (Linux), or chess.exe (Windows)
 
-The executable needs resources grouped in the 'resources' folder.
+The program needs resources related to the GUI, that are grouped in the 'resources' folder.
 
-On Windows, the executable needs also to have access to the 4 following DLLs. These DLLs can be in the same directory as the program or in a directory listed in the PATH environment variable :
+On Windows, the program needs also to have access to the 4 following graphical DLLs. These DLLs can be in the same directory as the program or in a directory listed in the PATH environment variable:
 - SDL2.dll
 - SDL2_image.dll
 - SDL2_ttf.dll
@@ -41,6 +41,6 @@ You can play against the engine or you can start the engine twice (in two separa
 
 ## Using GUI-less engine chessx (linux) or chessx.exe (Windows)
 
-Appart from the resources grouped in the 'resources' folder, the GUI-less engine does not need any additional file.
+The GUI-less engine does not need any additional file. It is totally standalone.
 
 Start XBOARD under linux (or WINBOARD under Windows). Via the GUI, add the engine and its path in the list of engines (to be done once only). Select the engine and play !
