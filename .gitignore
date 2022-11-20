@@ -3,16 +3,7 @@ chess.exe
 chessx
 chessx.exe
 chess.tar.gz
-chess_pengy
-chess_pengy.exe
-chess_pengyx
-chess_pengyx.exe
-chess_pengy.tar.gz
 game.chess
 move.chs
 white_move.chs
 black_move.chs
-SDL2.dll
-SDL2_image.dll
-SDL2_ttf.dll
-libfreetype-6.dll
