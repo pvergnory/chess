@@ -98,13 +98,13 @@ static void load_game(void)
     }
 
     init_game(NULL);
-    char move[8];
+    char move_str[8];
     while (1) {
-        memset(move, 0, sizeof(move));
-        if (fscanf(f, "%[^\n]", move) == EOF) break;
+        memset(move_str, 0, sizeof(move_str));
+        if (fscanf(f, "%[^\n]", move_str) == EOF) break;
         fgetc(f);  // skip '\n'
-        printf("play %d: move %s\n", play, move);
-        if (try_move(move) != 1) break;
+        printf("play %d: move %s\n", play, move_str);
+        if (try_move_str(move_str) != 1) break;
     }
     nb_plays = play;
     fclose(f);
@@ -418,26 +418,26 @@ static void get_piece_from(int sq64, char* piece)
     set_piece(' ', sq64 / 8, sq64 % 8);
 }
 
-static int get_move_to(int from64, int to64, char* piece, char* move)
+static int get_move_to(int from64, int to64, char* piece, char* move_str)
 {
     if (to64 < 0 || to64 > 63 || *piece == 0) return 0;
 
-    // put back the piece (it will be moved by try_move() )
+    // put back the piece (it will be moved by try_move_str() )
     set_piece(*piece, from64 / 8, from64 % 8);
     *piece = 0;
 
     // Allow the player to put the piece back to its original place (no move)
     if (to64 == from64) return 0;
 
-    move[0] = 'a' + from64 % 8;
-    move[1] = '1' + from64 / 8;
-    move[2] = 'a' + to64 % 8;
-    move[3] = '1' + to64 / 8;
-    move[4] = 0;
+    move_str[0] = 'a' + from64 % 8;
+    move_str[1] = '1' + from64 / 8;
+    move_str[2] = 'a' + to64 % 8;
+    move_str[3] = '1' + to64 / 8;
+    move_str[4] = 0;
     return 1;
 }
 
-static int handle_user_turn( char* move)
+static int handle_user_turn( char* move_str)
 {
     char piece = 0;
     int from64 = 0, to64 = 0;
@@ -451,8 +451,8 @@ static int handle_user_turn( char* move)
         SDL_Event event;
         while (SDL_WaitEventTimeout(&event, 20) == 0) {
             // While waiting for an event, check if a program sent us its move
-            if (receive_move(move))
-                if (try_move(move)) return ANIM_GS;
+            if (receive_move(move_str))
+                if (try_move_str(move_str)) return ANIM_GS;
         }
 
         // Event is 'Quit'
@@ -478,8 +478,8 @@ static int handle_user_turn( char* move)
         }
         else if (event.type == SDL_MOUSEBUTTONUP) {
             to64 = mouse_to_sq64(event.button.x, event.button.y);
-            if (get_move_to(from64, to64, &piece, move))
-                if (try_move(move)) return THINK_GS;
+            if (get_move_to(from64, to64, &piece, move_str))
+                if (try_move_str(move_str)) return THINK_GS;
         }
 
         // Event is a keyboard input
@@ -507,7 +507,7 @@ static int handle_user_turn( char* move)
 int main(int argc, char* argv[])
 {
     (void)argc;
-    char move[8];
+    char move_str[8];
 
     // A few inits
     char* name;
@@ -522,10 +522,10 @@ int main(int argc, char* argv[])
     // The game loop
     while (1) {
         // To the user to play
-        game_state = handle_user_turn(move);
+        game_state = handle_user_turn(move_str);
         if (game_state == QUIT_GS) break;
         if (game_state == ANIM_GS) {
-            move_animation(move);
+            move_animation(move_str);
             game_state = THINK_GS;
         }
         display_all(0, 0, 0);

@@ -43,7 +43,7 @@ void  set_piece( char ch, int l, int c);
 char  get_piece( int l, int c);
 char* get_move_str( int p );
 
-int   try_move( char *move );
+int   try_move_str( char *move_str );
 void  compute_next_move( void );
 void  user_undo_move( void );
 void  user_redo_move( void );

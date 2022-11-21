@@ -184,7 +184,7 @@ int main(int argc, char* argv[])
 
         // Handle a move or an unknown xboard command
         else {
-            int res = try_move( cmd );
+            int res = try_move_str( cmd );
             if      (res <  0) { send_str("Error (unknown command): "); send_str( cmd ); send_str("\n"); }
             else if (res == 0) { send_str("Illegal move: "); send_str( cmd ); send_str("\n"); }
             else if (go) {

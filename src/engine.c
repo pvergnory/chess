@@ -779,40 +779,46 @@ static int in_check_mat(int side)
 // Do the move, but only if it is legal
 //------------------------------------------------------------------------------------
 
-int try_move(char *move_str)
-{
-    move_t move;
+static int try_move(move_t move, int side) {
 
-    if (str_to_move(move_str, &move) == 0) return -1;
+    // Notice the piece type (for mv50)
+    char type = B(move.from) & TYPE;
 
-    // Very basic checks
-    int color = (play & 1) ? BLACK : WHITE;
-    if ((B(move.from) & color) != color) return 0;
-    if ((B(move.to) & color) == color) return 0;
-
-    // Verify if it is a pseudo-legal one
-    move_t list_of_moves[28];
-    memset(list_of_moves, 0, sizeof(list_of_moves));
-    move_ptr = list_of_moves;
-    list_moves(move.from);
-
-    move_t *m;
-    for (m = list_of_moves; m < move_ptr; m++) if (m->to == move.to) break;
-    if (m == move_ptr) return 0;
-
-    // Try the move
-    do_move(*m);
-
-    // Refuse a move that would put the player own king in check
-    if (in_check(color, king_pos[play + 1])) {
+    // Try the move, then reject it if it puts the same side king in check
+    do_move(move);
+    if (in_check( side, king_pos[play + 1])) {
         undo_move();
         return 0;
     }
 
     // The move was fully legal, accept it
-    moved[play - 1].val = m->val;
-    nb_plays            = play;
+    nb_plays = play;
 
+    // Update the nb of "steril" moves
+    mv50 = (type == PAWN || move.eaten) ? 0 : mv50 + 1;
+
+    return 1;
+}
+
+int try_move_str(char *move_str)
+{
+    move_t move;
+    if (str_to_move(move_str, &move) == 0) return -1;
+
+    // Side check
+    int side = (play & 1) ? BLACK : WHITE;
+    if ((B(move.from) & COLORS) != side) return 0;
+
+    // Verify if it is a pseudo-legal one
+    move_t list_of_moves[28];
+    move_ptr = list_of_moves;
+    list_moves(move.from);
+
+    move_t *m;
+    for (m = list_of_moves; m < move_ptr; m++) if (m->val == move.val) break;
+    if (m == move_ptr) return 0;
+
+    if (!try_move(move, side)) return 0;
     log_info_va("Play %d: <- %s\n", play, move_str);
     return 1;
 }
@@ -1022,11 +1028,11 @@ int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
     int penalty = 0;
     if (level == 1) {
         char type = B(moved[play - 1].to) & TYPE;
-        if (type == PAWN || moved[play - 1].eaten) mv50 = 0;
-        else {
-            mv50++;
-            if (mv50 > 24) penalty += mv50;
-        }
+
+        // Discourage too many successive "sterile" moves
+        if (mv50 > 24 && type != PAWN && moved[play - 1].special != PROMOTE && !moved[play - 1].eaten)
+            penalty += mv50;
+
         // Discourage king move and rook move at the beginning of the game
         if (type == KING) penalty += 8;
         if (type >= ROOK && play < 10) penalty += 20;
@@ -1235,8 +1241,7 @@ void compute_next_move(void)
     total_ms += elapsed_ms;
 
 play_the_prefered_move:
-    do_move(engine_move);
-    nb_plays        = play;
+    try_move(engine_move, engine_side);
     engine_move_str = move_str(engine_move);
 
     log_info_va("Play %d: -> %s\n", play, engine_move_str);
