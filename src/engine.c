@@ -68,8 +68,7 @@ typedef struct {
     };
 } move_t;
 
-move_t best_sequence[LEVEL_MAX+1];
-move_t best_move[LEVEL_MAX+1];
+move_t best_sequence[LEVEL_MAX+1], best_move[LEVEL_MAX+1], next_best[LEVEL_MAX+1];
 
 // Transposition table to stores move choices for each encountered board situations
 #define TABLE_ENTRIES (1 << 24) // 16 Mega entries
@@ -526,64 +525,62 @@ static int in_check(int side, int pos)
     int other = COLORS ^ side;
 
     // test pawn and king closeby
-    if ((B(pos + fwd - 1) ^ other) <= KING) goto yes;
-    if ((B(pos + fwd + 1) ^ other) <= KING) goto yes;
+    if ((B(pos + fwd - 1) ^ other) <= KING) return 1;
+    if ((B(pos + fwd + 1) ^ other) <= KING) return 1;
 
     // king closeby
-    if ((B(pos - fwd + 1) ^ other) == KING) goto yes;
-    if ((B(pos - fwd - 1) ^ other) == KING) goto yes;
-    if ((B(pos + 1) ^ other) == KING) goto yes;
-    if ((B(pos - 1) ^ other) == KING) goto yes;
-    if ((B(pos + 10) ^ other) == KING) goto yes;
-    if ((B(pos - 10) ^ other) == KING) goto yes;
+    if ((B(pos - fwd + 1) ^ other) == KING) return 1;
+    if ((B(pos - fwd - 1) ^ other) == KING) return 1;
+    if ((B(pos + 1) ^ other) == KING) return 1;
+    if ((B(pos - 1) ^ other) == KING) return 1;
+    if ((B(pos + 10) ^ other) == KING) return 1;
+    if ((B(pos - 10) ^ other) == KING) return 1;
 
     // test queen and bishop
     for (p = pos + 11; B(p) == 0; p += 11) continue;
     type = B(p) ^ other;
-    if (type == QUEEN || type == BISHOP) goto yes;
+    if (type == QUEEN || type == BISHOP) return 1;
 
     for (p = pos - 11; B(p) == 0; p -= 11) continue;
     type = B(p) ^ other;
-    if (type == QUEEN || type == BISHOP) goto yes;
+    if (type == QUEEN || type == BISHOP) return 1;
 
     for (p = pos + 9; B(p) == 0; p += 9) continue;
     type = B(p) ^ other;
-    if (type == QUEEN || type == BISHOP) goto yes;
+    if (type == QUEEN || type == BISHOP) return 1;
 
     for (p = pos - 9; B(p) == 0; p -= 9) continue;
     type = B(p) ^ other;
-    if (type == QUEEN || type == BISHOP) goto yes;
+    if (type == QUEEN || type == BISHOP) return 1;
 
     // test queen and rook
     for (p = pos + 1; B(p) == 0; p++) continue;
     type = B(p) ^ other;
-    if (type == QUEEN || type == ROOK) goto yes;
+    if (type == QUEEN || type == ROOK) return 1;
 
     for (p = pos - 1; B(p) == 0; p--) continue;
     type = B(p) ^ other;
-    if (type == QUEEN || type == ROOK) goto yes;
+    if (type == QUEEN || type == ROOK) return 1;
 
     for (p = pos + 10; B(p) == 0; p += 10) continue;
     type = B(p) ^ other;
-    if (type == QUEEN || type == ROOK) goto yes;
+    if (type == QUEEN || type == ROOK) return 1;
 
     for (p = pos - 10; B(p) == 0; p -= 10) continue;
     type = B(p) ^ other;
-    if (type == QUEEN || type == ROOK) goto yes;
+    if (type == QUEEN || type == ROOK) return 1;
 
     // test knight
-    if ((B(pos + 21) ^ other) == KNIGHT) goto yes;
-    if ((B(pos - 21) ^ other) == KNIGHT) goto yes;
-    if ((B(pos + 19) ^ other) == KNIGHT) goto yes;
-    if ((B(pos - 19) ^ other) == KNIGHT) goto yes;
-    if ((B(pos + 12) ^ other) == KNIGHT) goto yes;
-    if ((B(pos - 12) ^ other) == KNIGHT) goto yes;
-    if ((B(pos + 8) ^ other) == KNIGHT) goto yes;
-    if ((B(pos - 8) ^ other) == KNIGHT) goto yes;
+    if ((B(pos + 21) ^ other) == KNIGHT) return 1;
+    if ((B(pos - 21) ^ other) == KNIGHT) return 1;
+    if ((B(pos + 19) ^ other) == KNIGHT) return 1;
+    if ((B(pos - 19) ^ other) == KNIGHT) return 1;
+    if ((B(pos + 12) ^ other) == KNIGHT) return 1;
+    if ((B(pos - 12) ^ other) == KNIGHT) return 1;
+    if ((B(pos + 8) ^ other) == KNIGHT) return 1;
+    if ((B(pos - 8) ^ other) == KNIGHT) return 1;
 
     return 0;
-yes:
-    return 1;
 }
 
 //------------------------------------------------------------------------------------
@@ -928,19 +925,19 @@ static int get_table_entry(int depth, int side, int* flag, int* eval)
 
 // Initial indexes of attacks in the sparsely filled ordered attack list.
 // Attacks ordering is "most valuable victim by least valuable attacker" first.
-// Index starts at 2 to leave place for the PV move and the killer move.
+// Index starts at 3 to leave place for the PV move and 2 killer moves.
 // Use mv_i0 as follows: mv_i0[8*attacker_piece_type + victim_piece_type]. Up to 8 queens !
 static int mv_i0[64] = {
     0, 0, 0, 0, 0, 0, 0, 0, 
     0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 160, 2, 130, 101, 71, 2, 
-    0, 0, 218, 2, 158, 129, 99, 70, 
-    0, 0, 174, 2, 134, 105, 75, 16, 
-    0, 0, 184, 2, 138, 109, 79, 26, 
-    0, 0, 192, 2, 140, 111, 81, 34, 
-    0, 0, 196, 2, 144, 115, 85, 48
+    0, 0, 161, 3, 131, 102, 72, 3, 
+    0, 0, 219, 3, 159, 130, 100, 71, 
+    0, 0, 175, 3, 135, 106, 76, 17, 
+    0, 0, 185, 3, 139, 110, 80, 27, 
+    0, 0, 193, 3, 141, 112, 82, 35, 
+    0, 0, 197, 3, 145, 116, 86, 49
 };
-#define AFTER_ATTACKS 225
+#define AFTER_ATTACKS 226
 
 static void fast_sort_moves(move_t* list, int nb_moves, int level, move_t table_move)
 {
@@ -964,6 +961,10 @@ static void fast_sort_moves(move_t* list, int nb_moves, int level, move_t table_
         // Give the 2nd rank to the previous best move at this level (the "killer" move)
         else if (val == best_move[level].val)
             sorted_a[1] = val;
+
+        // Give the 2nd rank to the previous best move at this level (the "killer" move)
+        else if (val == next_best[level].val)
+            sorted_a[2] = val;
 
         // place the attacking moves in a sparsely filled, but ordered list
         else if (list[n].eaten) {
@@ -1018,6 +1019,7 @@ int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
     if (flag == EXACT_VALUE || (a >= b && flag > OTHER_DEPTH)) {
         nb_dedup++;
         mm_move          = table[h].move;
+        next_best[level] = best_move[level];
         best_move[level] = mm_move;
         sequence[level]  = mm_move;
         memcpy(upper_sequence, sequence, level_max * sizeof(move_t));  // reductible...
@@ -1131,6 +1133,7 @@ int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
         if (eval > max) {
             max              = eval;  // max = max( max, eval )
             mm_move          = *m;
+            next_best[level] = best_move[level];
             best_move[level] = mm_move;
             sequence[level]  = mm_move;
             memcpy(upper_sequence, sequence, level_max * sizeof(move_t));
@@ -1205,6 +1208,7 @@ void compute_next_move(void)
 
     do {
         best_move[level_max].val = 0;
+        next_best[level_max].val = 0;
         level_max++;
         ab_moves                 = 0;
         next_ab_moves_time_check = ab_moves + 10000;
