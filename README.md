@@ -8,7 +8,7 @@ A small chess engine, written in C, with a graphical user interface (**chess**) 
 - Entire board copy at each new move, so undoing a move is very simple
 - Negamax search with alpha beta pruning
 - Iterative deepening
-- Move ordering : Principal Variation move, then "killer move", then MVV/LVA attacks, then other moves
+- Move ordering : Principal Variation move, then two "killer moves", then MVV/LVA attacks, then other moves
 - Transposition table (using Pengy hash)
 - Evaluation pruning
 - Futility prunning
