@@ -71,8 +71,6 @@ typedef struct {
 move_t best_sequence[LEVEL_MAX+1], best_move[LEVEL_MAX+1], next_best[LEVEL_MAX+1];
 
 // Transposition table to stores move choices for each encountered board situations
-#define TABLE_ENTRIES (1 << 24) // 16 Mega entries
-
 #define NEW_BOARD   0
 #define OTHER_DEPTH 1
 #define UPPER_BOUND 2
@@ -80,14 +78,20 @@ move_t best_sequence[LEVEL_MAX+1], best_move[LEVEL_MAX+1], next_best[LEVEL_MAX+1
 #define EXACT_VALUE 4
 
 typedef struct {
-    uint64_t hash;  // Pengy hash
+    union {
+        uint64_t hash;      // Pengy hash. Useless LSB taken for depth & flag => 16B table entry size
+        struct {            // /!\ struct for little endian CPU !
+            uint8_t  depth;
+            uint8_t  flag;
+            uint16_t dummy[3];
+        };
+    };
     move_t   move;
     int32_t  eval;
-    int16_t  depth;
-    char     flag;
 } table_t;
 
-table_t table[TABLE_ENTRIES];
+#define TABLE_ENTRIES (1 << 23) // 8 Mega entries.x 16B = 128 MB memory
+table_t table[TABLE_ENTRIES] __attribute__((aligned(16)));
 
 // Move choosen by the chess engine
 char *engine_move_str;
@@ -111,8 +115,7 @@ move_t first_ply[6] = {
     {.from = 14, .to = 34},
     {.from = 15, .to = 35},
     { .from = 1, .to = 22},
-    { .from = 6, .to = 25}
-};
+    { .from = 6, .to = 25} };
 
 move_t *move_ptr;
 
@@ -895,7 +898,7 @@ static int get_table_entry(int depth, int side, int* flag, int* eval)
 
     // Look if the hash is in the transposition table
     int h = hash & (TABLE_ENTRIES-1);
-    if (table[h].hash == hash) {
+    if ((table[h].hash ^ hash) < TABLE_ENTRIES) {
 
         // To reduce hash collisions, reject an entry with impossible move
         move = table[h].move;
@@ -913,7 +916,6 @@ static int get_table_entry(int depth, int side, int* flag, int* eval)
     // The hash was not present or was for another board. Set the table entry
     table[h].hash     = hash;
     table[h].move.val = 0;
-    table[h].flag     = NEW_BOARD;
     *flag             = NEW_BOARD;
     nb_hash++;
     return h;
@@ -935,8 +937,8 @@ static int mv_i0[64] = {
     0, 0, 175, 3, 135, 106, 76, 17, 
     0, 0, 185, 3, 139, 110, 80, 27, 
     0, 0, 193, 3, 141, 112, 82, 35, 
-    0, 0, 197, 3, 145, 116, 86, 49
-};
+    0, 0, 197, 3, 145, 116, 86, 49 };
+
 #define AFTER_ATTACKS 226
 
 static void fast_sort_moves(move_t* list, int nb_moves, int level, move_t table_move)
