@@ -741,7 +741,6 @@ void list_moves(int pos)
         check_bpawn_eat(pos, pos - 11);
         break;
     }
-    move_ptr->from = NO_POSITION;
 }
 
 //------------------------------------------------------------------------------------
@@ -752,7 +751,7 @@ static int in_mat(int side)
 {
     int from, check;
     move_t list_of_moves[256];
-    move_t *p;
+    move_t *m;
 
     // List all possible moves
     move_ptr = list_of_moves;
@@ -760,8 +759,8 @@ static int in_mat(int side)
         if (B(from) & side) list_moves(from);
 
     // set the board with each possible move and check if the king is in check
-    for (p = list_of_moves; p->from != NO_POSITION; p++) {
-        do_move(*p);
+    for (m = list_of_moves; m < move_ptr; m++) {
+        do_move(*m);
         check = in_check(side, king_pos[play + 1]);
         undo_move();
         if (!check) return CHECK_GS;  // in check but not mat
@@ -925,65 +924,62 @@ static int get_table_entry(int depth, int side, int* flag, int* eval)
 // Sort moves in descending order of interest to improve alpha-beta prunning
 //------------------------------------------------------------------------------------
 
-// Initial indexes of attacks in the sparsely filled ordered attack list.
-// Attacks ordering is "most valuable victim by least valuable attacker" first.
-// Index starts at 3 to leave place for the PV move and 2 killer moves.
-// Use mv_i0 as follows: mv_i0[8*attacker_piece_type + victim_piece_type]. Up to 8 queens !
-static int mv_i0[64] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 161, 3, 131, 102, 72, 3, 
-    0, 0, 219, 3, 159, 130, 100, 71, 
-    0, 0, 175, 3, 135, 106, 76, 17, 
-    0, 0, 185, 3, 139, 110, 80, 27, 
-    0, 0, 193, 3, 141, 112, 82, 35, 
-    0, 0, 197, 3, 145, 116, 86, 49 };
-
-#define AFTER_ATTACKS 226
-
 static void fast_sort_moves(move_t* list, int nb_moves, int level, move_t table_move)
 {
-    unsigned int sorted_a[256] = { 0 };
-    unsigned int non_a[256];
-    int mv_i[64];
-    int i, s, n, na = 0;
+    // Indexes of attacks in the sparsely filled sorted_attacks[] list.
+    // Attacks ordering is "most valuable victim by least valuable attacker" first.
+    // Index starts at 3 to leave place for the PV move and 2 killer moves.
+    // Use as follows: attack_indexes[8*attacker_type + victim_type]. Up to 2x 3 queens
+    int attack_indexes[64] = {
+        0, 0, 0, 0, 0, 0, 0, 0, 
+        0, 0, 0, 0, 0, 0, 0, 0, 
+        0, 0, 98, 3, 76, 55, 33, 3, 
+        0, 0, 156, 3, 96, 75, 53, 32, 
+        0, 0, 112, 3, 80, 59, 37, 9, 
+        0, 0, 122, 3, 84, 63, 41, 15, 
+        0, 0, 130, 3, 86, 65, 43, 18, 
+        0, 0, 134, 3, 90, 69, 47, 23  }; // sparse attack list minimal size: 163
 
-    // Initialize the attack indices pointing to the sparse ordered attack list
-    memcpy(mv_i, mv_i0, sizeof(mv_i0));
+    #define LAST_ATTACK_INDEX ((KING<<3) + PAWN)
+
+    unsigned int sorted_attacks[192] = { 0 };
+    unsigned int other_moves[256];
+    int i, i_max, a, m, o;
 
     // get all move scores
-    for (n = 0; n < nb_moves; n++) {
+    for (m = 0, o = 0; m < nb_moves; m++) {
 
-        unsigned int val = list[n].val;
+        unsigned int val = list[m].val;
 
         // Give the 1st rank to the Transition Table move (PV move or other)
         if (val == table_move.val)
-            sorted_a[0] = val;
+            sorted_attacks[0] = val;
 
         // Give the 2nd rank to the previous best move at this level (the "killer" move)
         else if (val == best_move[level].val)
-            sorted_a[1] = val;
+            sorted_attacks[1] = val;
 
         // Give the 2nd rank to the previous best move at this level (the "killer" move)
         else if (val == next_best[level].val)
-            sorted_a[2] = val;
+            sorted_attacks[2] = val;
 
         // place the attacking moves in a sparsely filled, but ordered list
-        else if (list[n].eaten) {
-            // get the index in the mv_i[] table (8*attacker + victim) 
-            int a = ((B(list[n].from) & 7)<<3) + (list[n].eaten & 7);
-            // mv_i[a] gives the index to the sparsely filled list for this attack
-            sorted_a[mv_i[a]++] = val;
+        else if (list[m].eaten) {
+            // get the index in the attack_indexes[] table (8*attacker + victim) 
+            i = ((B(list[m].from) & 7)<<3) + (list[m].eaten & 7);
+            // sorted_attacks[i] is the place for this attack
+            sorted_attacks[attack_indexes[i]++] = val;
         }
         // place the non attacking moves in another list
-        else non_a[na++] = val;
+        else other_moves[o++] = val;
     }
-    // compact the sorted attacks list
-    for (i = 0, s = 0; i < AFTER_ATTACKS; i++) if (sorted_a[i]) sorted_a[s++] = sorted_a[i];
+    // Compact the sorted attacks list
+    i_max = attack_indexes[LAST_ATTACK_INDEX];
+    for (i = 0, a = 0; i < i_max; i++) if (sorted_attacks[i]) sorted_attacks[a++] = sorted_attacks[i];
 
-    // Finally concatenate the sorted attacks and the non attacks
-    if (s) memcpy(list, sorted_a, s*sizeof(int));
-    if (na) memcpy(list + s, non_a, na*sizeof(int));
+    // Finally put back the sorted attacks and the other moves in the input list
+    if (a) memcpy(list, sorted_attacks, a*sizeof(int));
+    if (o) memcpy(list + a, other_moves, o*sizeof(int));
 }
 
 //------------------------------------------------------------------------------------
@@ -1069,8 +1065,9 @@ int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
     int nb_of_moves = move_ptr - list_of_moves;
     if (nb_of_moves == 0)
         return (side == engine_side) ? -100000 : 100000; // Avoid "Pats"
+    move_ptr->val = 0;
 
-    // List king protectors: no king check verfification will be done on non-protectors moves
+    // List king protectors: no king check verification will be done on non-protectors moves
     int king_protectors[8];
     int king_protectors_nb = 0;
     if (!check) king_protectors_nb = list_king_protectors(side, &king_protectors[0]);
@@ -1084,7 +1081,7 @@ int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
     fast_sort_moves(list_of_moves, nb_of_moves, level, table[h].move);
 
     // Try each possible move
-    for (m = list_of_moves; m->from != NO_POSITION; m++) {
+    for (m = list_of_moves; m->val; m++) {
 
         // Once the max level reached, only evaluate "eating" moves. We'll stop
         // on a "stablized" eating situation that will provide a better evaluation (algo 2)
@@ -1112,7 +1109,7 @@ int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
         // evaluate this move
         if (one_possible == 0) {
             one_possible = 1;
-            eval         = -nega_alpha_beta(level + 1, -b, -a, side ^ COLORS, sequence);
+            eval = -nega_alpha_beta(level + 1, -b, -a, side ^ COLORS, sequence);
         }
         else {
             eval = -nega_alpha_beta(level + 1, -a - 1, -a, side ^ COLORS, sequence);
