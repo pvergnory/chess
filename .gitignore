@@ -8,3 +8,7 @@ move.chs
 white_move.chs
 black_move.chs
 src/book.h
+libfreetype-6.dll
+SDL2_image.dll
+SDL2_ttf.dll
+SDL2.dll
