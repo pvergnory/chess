@@ -1008,12 +1008,8 @@ static int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequ
     int h = get_table_entry(depth, side, &flag, &eval);
 
     int old_a = a;
-    if (flag == LOWER_BOUND) {
-        if (a < eval) a = eval;
-    }
-    else if (flag == UPPER_BOUND) {
-        if (b > eval) b = eval;
-    }
+    if (flag == LOWER_BOUND)      { if (a < eval) a = eval;  }
+    else if (flag == UPPER_BOUND) { if (b > eval) b = eval;  }
     if (flag == EXACT_VALUE || (a >= b && flag > OTHER_DEPTH)) {
         nb_dedup++;
         mm_move          = table[h].move;
@@ -1022,31 +1018,6 @@ static int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequ
         sequence[level]  = mm_move;
         memcpy(upper_sequence, sequence, level_max * sizeof(move_t));  // reductible...
         return eval;
-    }
-
-    // Penalty on certain 1st moves
-    int penalty = 0;
-    if (level == 1) {
-        char type = B(moved[play - 1].to) & TYPE;
-
-        // Discourage too many successive "sterile" moves
-        if (mv50 > 24 && type != PAWN && moved[play - 1].special != PROMOTE && !moved[play - 1].eaten)
-            penalty += mv50;
-
-        // Discourage king move and rook move at the beginning of the game
-        if (type == KING) penalty += 8;
-        if (type >= ROOK && play < 10) penalty += 20;
-
-        // Discourage move back and perpetual move loops
-        if (play > 7) {
-            if (moved[play - 1].from == moved[play - 3].to && moved[play - 1].to == moved[play - 3].from) penalty += 10;
-            if (moved[play - 1].from == moved[play - 5].from && moved[play - 1].to == moved[play - 5].to) penalty += 30;
-            if (moved[play - 1].from == moved[play - 7].to && moved[play - 1].to == moved[play - 7].from) penalty += 100;
-            if (play > 12) {
-                if (moved[play - 1].from == moved[play - 9].from && moved[play - 1].to == moved[play - 9].to) penalty += 300;
-                if (moved[play - 1].from == moved[play - 13].from && moved[play - 1].to == moved[play - 13].to) penalty += 600;
-            }
-        }
     }
 
     // List all the pseudo legal moves
@@ -1115,7 +1086,6 @@ static int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequ
             if (a < eval && eval < b && depth > 2)
                 eval = -nega_alpha_beta(level + 1, -b, -a, side ^ COLORS, sequence);
         }
-        eval += penalty;
 
         // undo the move to evaluate the others
         undo_move();
@@ -1125,6 +1095,29 @@ static int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequ
             // if time's up, stop search and keep previous lower depth search move
             if (get_chrono() >= time_budget_ms) return -400000;
             next_ab_moves_time_check = ab_moves + 10000;
+        }
+
+        // Penalty on certain 1st moves
+        if (level == 0) {
+            char type = B(m->from) & TYPE;
+
+            // Discourage too many successive "sterile" moves (rule is 50 max)
+            if (mv50 > 24 && type != PAWN && !m->eaten) eval -= mv50;
+
+            // Discourage king move and rook move at the beginning of the game
+            if (type == KING) eval -= 8;
+            if (type >= ROOK && play < 10) eval -= 20;
+
+            // Discourage move back and perpetual move loops
+            if (play > 6) {
+                if (m->from == moved[play - 2].to   && m->to == moved[play - 2].from) eval -= 10;
+                if (m->from == moved[play - 4].from && m->to == moved[play - 4].to  ) eval -= 30;
+                if (m->from == moved[play - 6].to   && m->to == moved[play - 6].from) eval -= 100;
+                if (play > 12) {
+                    if (m->from == moved[play -  8].from && m->to == moved[play -  8].to) eval -= 300;
+                    if (m->from == moved[play - 12].from && m->to == moved[play - 12].to) eval -= 600;
+                }
+            }
         }
 
         // The player wants to maximize his score
@@ -1196,7 +1189,7 @@ void compute_next_move(void)
         log_info("not found\n");
     }
 
-    long prev_level_ms, level_ms = 0, elapsed_ms = 0;
+    long level_ms = 0, elapsed_ms = 0;
     start_chrono();
 
     // Search deeper and deeper the best move,
@@ -1214,13 +1207,12 @@ void compute_next_move(void)
         nb_hash                  = 0;
 
         int max = nega_alpha_beta(0, -400000, 400000, engine_side, best_sequence);
-        if (max != -400000 && max != 400000) engine_move = best_sequence[0];
+        engine_move = best_sequence[0];
         if (engine_move.val == 0) {
             game_state = PAT_GS;
             return;
         }
 
-        prev_level_ms = level_ms;
         level_ms = -elapsed_ms;
         elapsed_ms = get_chrono();
         level_ms += elapsed_ms;
@@ -1235,9 +1227,8 @@ void compute_next_move(void)
         // If a check-mat is un-avoidable, no need to think more
         if (max > 199800 || max < -199800) break;
 
-        // Evaluate if we have time for the next search level, given current time expension per level
-        if (prev_level_ms)
-            if (time_budget_ms - elapsed_ms < (level_ms * level_ms) / prev_level_ms) break;
+        // Evaluate if we have time for the next search level
+        if (level_ms * 3 > time_budget_ms - elapsed_ms) break;
     }
     while (level_max <= LEVEL_MAX);
     total_ms += elapsed_ms;
