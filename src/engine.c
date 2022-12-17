@@ -37,7 +37,7 @@ enum piece_t {
 #define NO_POSITION           79  // an impossible position
 #define MAX_TURNS             500
 
-char boards[FIRST_BOARDER_SIZE + BOARD_AND_BORDER_SIZE * MAX_TURNS] __attribute__((aligned(16)));
+static char boards[FIRST_BOARDER_SIZE + BOARD_AND_BORDER_SIZE * MAX_TURNS] __attribute__((aligned(16)));
 
 #define BOARD0 &boards[FIRST_BOARDER_SIZE]
 char *board_ptr = BOARD0;
@@ -68,7 +68,7 @@ typedef struct {
     };
 } move_t;
 
-move_t best_sequence[LEVEL_MAX+1], best_move[LEVEL_MAX+1], next_best[LEVEL_MAX+1];
+static move_t best_sequence[LEVEL_MAX+1], best_move[LEVEL_MAX+1], next_best[LEVEL_MAX+1];
 
 // Transposition table to stores move choices for each encountered board situations
 #define NEW_BOARD   0
@@ -91,7 +91,7 @@ typedef struct {
 } table_t;
 
 #define TABLE_ENTRIES (1 << 23) // 8 Mega entries.x 16B = 128 MB memory
-table_t table[TABLE_ENTRIES] __attribute__((aligned(16)));
+static table_t table[TABLE_ENTRIES] __attribute__((aligned(16)));
 
 // Move choosen by the chess engine
 char *engine_move_str;
@@ -100,16 +100,16 @@ int game_state = WAIT_GS;
 
 int play            = 0;
 int nb_plays        = 0;
-int mv50            = 0;
 int verbose         = 1;
 int use_book        = 1;
 int randomize       = 0;
 int level_max_max   = LEVEL_MAX;
 long time_budget_ms = 2000;
-char engine_side;
+static int mv50     = 0;
+static char engine_side;
 
 // The first moves we accept to play
-move_t first_ply[6] = {
+static const move_t first_ply[6] = {
     {.from = 12, .to = 32},
     {.from = 13, .to = 33},
     {.from = 14, .to = 34},
@@ -117,33 +117,33 @@ move_t first_ply[6] = {
     { .from = 1, .to = 22},
     { .from = 6, .to = 25} };
 
-move_t *move_ptr;
+static move_t *move_ptr;
 
 // Track of the situation at all turns
-move_t moved[MAX_TURNS];
-int board_val[MAX_TURNS];
-int nb_pieces[MAX_TURNS];
+static move_t moved[MAX_TURNS];
+static int board_val[MAX_TURNS];
+static int nb_pieces[MAX_TURNS];
 
 // Possible place to eat "en passant" a pawn that moved two rows.
-char en_passant[MAX_TURNS];
+static char en_passant[MAX_TURNS];
 
 // Castle rules: involved rook and king must not have moved before the castle
 #define LEFT_CASTLE  1
 #define RIGHT_CASTLE 2
 #define ALL_CASTLES  3
-char castles[MAX_TURNS + 2];  // (even index: white castle, odd index: black castle)
+static char castles[MAX_TURNS + 2];  // (even index: white castle, odd index: black castle)
 
 // Keep track of kings positions
-int king_pos[MAX_TURNS + 2];  // (even index: white king, odd index: black king)
+static int king_pos[MAX_TURNS + 2];  // (even index: white king, odd index: black king)
 
 //                     -   P,   P,    K,   N,   B,   R,   Q
-int piece_value[33] = {0, 100, 100, 4000, 300, 314, 500, 900,
+static const int piece_value[33] = {0, 100, 100, 4000, 300, 314, 500, 900,
                        0, -100, -100, -4000, -300, -314, -500, -900,
                        0, 100, 100, 4000, 300, 314, 500, 900,
                        0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // During the first plays, try to occupy the center...
-int black_pos_bonus[BOARD_SIZE] = {
+static const int black_pos_bonus[BOARD_SIZE] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 2, 2, 2, 2, 0, 0, 0, 0,
@@ -153,7 +153,7 @@ int black_pos_bonus[BOARD_SIZE] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, -5, -2, 0, 0, 0, 0, 0, 0, 0};
 
-int white_pos_bonus[BOARD_SIZE] = {
+static const int white_pos_bonus[BOARD_SIZE] = {
     0, -5, -2, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 10, 8, 8, 10, 0, 0, 0, 0,
@@ -164,7 +164,7 @@ int white_pos_bonus[BOARD_SIZE] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // At the end of the game, the king must avoid the corners
-int king_pos_malus[BOARD_SIZE] = {
+static const int king_pos_malus[BOARD_SIZE] = {
     14, 12, 10, 8, 8, 10, 12, 14, 0, 0,
     12, 9, 7, 6, 6, 7, 9, 12, 0, 0,
     10, 7, 4, 2, 2, 4, 7, 10, 0, 0,
@@ -215,7 +215,7 @@ static int str_to_move(char *str, move_t *m)
     return 1;
 }
 
-char mv_str[8];
+static char mv_str[8];
 static char *move_str(move_t m)
 {
     memset(mv_str, 0, sizeof(mv_str));
@@ -226,7 +226,7 @@ static char *move_str(move_t m)
     return mv_str;
 }
 
-char piece_char[33] = " .........PKNBRQ..pknbrq.........";
+static char piece_char[33] = " .........PKNBRQ..pknbrq.........";
 
 void set_piece(char ch, int l, int c)
 {
@@ -256,8 +256,8 @@ char *get_move_str(int p)
     return move_str(moved[p]);
 }
 
-struct timeval tv0, tv1;
-long total_ms = 0;
+static struct timeval tv0, tv1;
+static long total_ms = 0;
 
 #define start_chrono() gettimeofday(&tv0, NULL);
 
@@ -274,7 +274,7 @@ static long get_chrono(void)
 // Pengy hash used for the openings book and transposition table
 //------------------------------------------------------------------------------------
 
-uint64_t pengyhash(const void *p, size_t size, uint32_t seed)
+static uint64_t pengyhash(const void *p, size_t size, uint32_t seed)
 {
     uint64_t b[4] = {0};
     uint64_t s[4] = {0, 0, 0, size};
@@ -389,7 +389,7 @@ void init_game(char *FEN_string)
 // Make the move, undo it, redo it
 //------------------------------------------------------------------------------------
 
-void do_move(move_t m)
+static void do_move(move_t m)
 {
     // Remember the whole previous game to be able to undo the move
     memcpy(board_ptr + BOARD_AND_BORDER_SIZE, board_ptr, BOARD_SIZE);
@@ -480,8 +480,8 @@ void user_redo_move(void)
 // Test if the king is in check
 //------------------------------------------------------------------------------------
 
-int qb_inc[4] = {9, 11, -9, -11};
-int qr_inc[4] = {10, 1, -10, -1};
+static const int qb_inc[4] = {9, 11, -9, -11};
+static const int qr_inc[4] = {10, 1, -10, -1};
 
 static int list_king_protectors(int side, int *king_protectors)
 {
@@ -590,7 +590,7 @@ static int in_check(int side, int pos)
 // List possible moves
 //------------------------------------------------------------------------------------
 
-void add_move(int from, int to, int special)
+static void add_move(int from, int to, int special)
 {
     move_ptr->from    = from;
     move_ptr->to      = to;
@@ -599,19 +599,19 @@ void add_move(int from, int to, int special)
     move_ptr++;
 }
 
-int check_move(char blocking, int from, int to)
+static int check_move(char blocking, int from, int to)
 {
     if (B(to) & blocking) return 0;
     add_move(from, to, 0);
     return (B(to) == 0);
 }
 
-void check_crawler_move(char blocking, int from, int to)
+static void check_crawler_move(char blocking, int from, int to)
 {
     if ((B(to) & blocking) == 0) add_move(from, to, 0);
 }
 
-int check_rook_move(char blocking, int from, int to)
+static int check_rook_move(char blocking, int from, int to)
 {
     int special = 0;
     if (from == 0 || from == 70) special = L_ROOK;
@@ -622,7 +622,7 @@ int check_rook_move(char blocking, int from, int to)
     return (B(to) == 0);
 }
 
-int check_pawn_move(int from, int to, int special)
+static int check_pawn_move(int from, int to, int special)
 {
     if (B(to)) return 0;
     if (to < 8 || to >= 70) special = PROMOTE;
@@ -630,7 +630,7 @@ int check_pawn_move(int from, int to, int special)
     return 1;
 }
 
-void check_wpawn_eat(int from, int to)
+static void check_wpawn_eat(int from, int to)
 {
     int special = 0;
     if (B(to) & BLACK) {
@@ -641,7 +641,7 @@ void check_wpawn_eat(int from, int to)
         add_move(from, to, EN_PASSANT);
 }
 
-void check_bpawn_eat(int from, int to)
+static void check_bpawn_eat(int from, int to)
 {
     int special = 0;
     if (B(to) & WHITE) {
@@ -652,7 +652,7 @@ void check_bpawn_eat(int from, int to)
         add_move(from, to, EN_PASSANT);
 }
 
-void list_moves(int pos)
+static void list_moves(int pos)
 {
     int i;
     char piece    = B(pos);
@@ -826,7 +826,7 @@ int try_move_str(char *move_str)
 // Board Evaluation
 //------------------------------------------------------------------------------------
 
-int evaluate(int side, int a, int b)
+static int evaluate(int side, int a, int b)
 {
     int sq, piece, res;
 
@@ -884,8 +884,8 @@ int evaluate(int side, int a, int b)
 // Transposition Table management
 //------------------------------------------------------------------------------------
 
-int nb_dedup;
-int nb_hash;
+static int nb_dedup;
+static int nb_hash;
 
 static int get_table_entry(int depth, int side, int* flag, int* eval)
 {
@@ -986,10 +986,10 @@ static void fast_sort_moves(move_t* list, int nb_moves, int level, move_t table_
 // The min-max recursive algo with alpha-beta pruning
 //------------------------------------------------------------------------------------
 
-int level_max;
-int ab_moves, next_ab_moves_time_check;
+static int level_max;
+static int ab_moves, next_ab_moves_time_check;
 
-int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
+static int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
 {
     int i, p, from, check, flag, eval, max = -300000, one_possible = 0;
     move_t list_of_moves[256];
@@ -1104,7 +1104,6 @@ int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
             continue;
         }
     after_check_check:
-        ab_moves++;
 
         // evaluate this move
         if (one_possible == 0) {
@@ -1122,7 +1121,7 @@ int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequence)
         undo_move();
 
         // Every 10000 moves, look at elapsed time
-        if (ab_moves > next_ab_moves_time_check) {
+        if (++ab_moves > next_ab_moves_time_check) {
             // if time's up, stop search and keep previous lower depth search move
             if (get_chrono() >= time_budget_ms) return -400000;
             next_ab_moves_time_check = ab_moves + 10000;
