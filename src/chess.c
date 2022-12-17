@@ -83,7 +83,7 @@ static void save_game(void)
     FILE* f = fopen("game.chess", "w");
     if (f == NULL) {
         fprintf(stderr, "Cannot open file for writing\n");
-        exit(-1);
+        return;
     }
     for (int p = 0; p < nb_plays; p++) fprintf(f, "%s\n", get_move_str(p));
     fclose(f);
@@ -114,8 +114,6 @@ static void load_game(void)
 // Graphical elements
 //------------------------------------------------------------------------------------
 
-char* piece_ch = "pknbrqPKNBRQ";
-
 #define WINDOW_WIDTH  640
 #define WINDOW_HEIGHT 480
 #define SQUARE_WIDTH  50
@@ -124,129 +122,93 @@ char* piece_ch = "pknbrqPKNBRQ";
 #define MARGIN        20
 #define PIECE_MARGIN  (MARGIN + (SQUARE_WIDTH - PIECE_WIDTH) / 2)
 
-SDL_Window* win;
-SDL_Texture* tex;
-SDL_Renderer* render;
-SDL_Rect text_rect;
-SDL_Texture* text_texture;
-TTF_Font *s_font, *font, *h_font;
-int mx, my;  // mouse position
+static TTF_Font      *s_font, *font, *h_font;
+static SDL_Window*   win = NULL;
+static SDL_Texture*  tex = NULL;
+static SDL_Renderer* render = NULL;
+static SDL_Texture*  text_texture = NULL;
+static int           mx, my;  // mouse position
+
+static void exit_with_message( char* error_msg) {
+    fprintf(stderr, "%s\n", error_msg);
+    exit(EXIT_FAILURE);
+}
+
+static void graphical_exit( char* error_msg)
+{
+    if (error_msg) fprintf(stderr, "%s: %s\n", error_msg, SDL_GetError());
+    if (tex)       SDL_DestroyTexture(tex);
+    if (render)    SDL_DestroyRenderer(render);
+    if (win)       SDL_DestroyWindow(win);
+    SDL_Quit();
+    if (error_msg) exit(EXIT_FAILURE);
+}
 
 static void graphical_inits(char* name)
 {
     // Load the text fonts
     TTF_Init();
     s_font = TTF_OpenFont("resources/FreeSans.ttf", 12);
-    if (s_font == NULL) {
-        fprintf(stderr, "error: small font not found\n");
-        exit(EXIT_FAILURE);
-    }
-    font = TTF_OpenFont("resources/OptimusPrinceps.ttf", 20);
-    if (font == NULL) {
-        fprintf(stderr, "error: font not found\n");
-        exit(EXIT_FAILURE);
-    }
-    h_font = TTF_OpenFont("resources/OptimusPrincepsSemiBold.ttf", 20);
-    if (font == NULL) {
-        fprintf(stderr, "error: bold font not found\n");
-        exit(EXIT_FAILURE);
-    }
+    if (s_font == NULL) exit_with_message( "error: small font not found" );
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-        fprintf(stderr, "SDL init error: %s\n", SDL_GetError());
-        exit(EXIT_FAILURE);
-    }
+    font = TTF_OpenFont("resources/OptimusPrinceps.ttf", 20);
+    if (font == NULL) exit_with_message( "error: normal font not found" );
+
+    h_font = TTF_OpenFont("resources/OptimusPrincepsSemiBold.ttf", 20);
+    if (h_font == NULL)  exit_with_message( "error: bold font not found" );
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) 
+        graphical_exit( "SDL init error" );
 
     win = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, 0);
-    if (!win) {
-        fprintf(stderr, "SDL init error: %s\n", SDL_GetError());
-        SDL_Quit();
-        exit(EXIT_FAILURE);
-    }
+    if (!win) graphical_exit( "SDL window creation error" );
 
     render = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!render) {
-        fprintf(stderr, "SDL init error: %s\n", SDL_GetError());
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        exit(EXIT_FAILURE);
-    }
+    if (!render) graphical_exit( "SDL render creation error");
 
     // load the chess pieces image
     SDL_Surface* surface = IMG_Load("resources/Chess_Pieces.png");
-    if (!surface) {
-        fprintf(stderr, "SDL surface error: %s\n", SDL_GetError());
-        SDL_DestroyRenderer(render);
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        exit(EXIT_FAILURE);
-    }
+    if (!surface) graphical_exit( "SDL image load error");
 
     // move it to a texture
     tex = SDL_CreateTextureFromSurface(render, surface);
     SDL_FreeSurface(surface);
-    if (!tex) {
-        fprintf(stderr, "SDL texture error: %s\n", SDL_GetError());
-        SDL_DestroyRenderer(render);
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        exit(EXIT_FAILURE);
-    }
+    if (!tex)  graphical_exit( "SDL texture creation error");
 
     // Capture also 1st click event than regains the window
     SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 }
 
-static void graphical_closes(void)
-{
-    SDL_DestroyTexture(tex);
-    SDL_DestroyRenderer(render);
-    SDL_DestroyWindow(win);
-    SDL_Quit();
-}
-
 static void put_text(TTF_Font* f, char* text, int x, int y)
 {
-    SDL_Surface* surface;
     SDL_Color textColor = {0, 0, 0, 0};
+    SDL_Surface* surface = TTF_RenderText_Solid(f, text, textColor);
+    SDL_Rect text_rect = { x, y, surface->w, surface->h };
 
-    text_rect.x = x;
-    text_rect.y = y;
-
-    surface      = TTF_RenderText_Solid(f, text, textColor);
     text_texture = SDL_CreateTextureFromSurface(render, surface);
-    text_rect.w  = surface->w;
-    text_rect.h  = surface->h;
     SDL_FreeSurface(surface);
 
     SDL_RenderCopy(render, text_texture, NULL, &text_rect);
-
     SDL_DestroyTexture(text_texture);
 }
 
-static int put_menu_text(char* text, int x, int y)
+static int put_menu_text(char* text, int x, int y, int id)
 {
     int ret = 0;
-    SDL_Surface* surface;
+
     SDL_Color textColor = {0, 0, 0, 0};
-
-    text_rect.x = x;
-    text_rect.y = y;
-
-    surface = TTF_RenderText_Solid(font, text, textColor);
+    SDL_Surface* surface = TTF_RenderText_Solid(font, text, textColor);
     if (mx >= x && mx < x + surface->w && my >= y && my < y + surface->h) {
         SDL_FreeSurface(surface);
         surface = TTF_RenderText_Solid(h_font, text, textColor);
-        ret = 1;
+        ret = id;
     }
+    SDL_Rect text_rect = { x, y, surface->w, surface->h };
 
     text_texture = SDL_CreateTextureFromSurface(render, surface);
-    text_rect.w  = surface->w;
-    text_rect.h  = surface->h;
     SDL_FreeSurface(surface);
 
     SDL_RenderCopy(render, text_texture, NULL, &text_rect);
-
     SDL_DestroyTexture(text_texture);
 
     return ret;
@@ -255,6 +217,8 @@ static int put_menu_text(char* text, int x, int y)
 static void draw_piece(char piece, int x, int y)
 {
     if (piece == ' ') return;
+
+    char* piece_ch = "pknbrqPKNBRQ";
 
     // get piece zone in pieces PNG file
     int p = strchr(piece_ch, piece) - piece_ch;
@@ -321,10 +285,10 @@ static int display_all(char piece, int x, int y)
     char number_str[10];
     int ret = 0;
 
+    SDL_GetMouseState(&mx, &my);
+
     /* Display the board and the pieces that are on it */
     display_board();
-
-    SDL_GetMouseState(&mx, &my);
 
     /* If a piece is picked by the user with his mouse or is moved by move_animation(), draw it */
     if (piece) {
@@ -339,15 +303,15 @@ static int display_all(char piece, int x, int y)
     put_text(font, number_str, 480, 36);
 
     draw_piece( (play & 1) ? 'k': 'K', 512, 25 );
-    if (put_menu_text("to play", 552, 36)) ret = MOUSE_OVER_YOU;
+    ret += put_menu_text("to play", 552, 36, MOUSE_OVER_YOU);
 
-    if (put_menu_text("New", 480, 87)) ret = MOUSE_OVER_NEW;
-    if (put_menu_text("Save", 480, 137)) ret = MOUSE_OVER_SAVE;
-    if (put_menu_text("Load", 480, 187)) ret = MOUSE_OVER_LOAD;
+    ret += put_menu_text("New", 480, 87, MOUSE_OVER_NEW);
+    ret += put_menu_text("Save", 480, 137, MOUSE_OVER_SAVE);
+    ret += put_menu_text("Load", 480, 187, MOUSE_OVER_LOAD);
 
-    if (put_menu_text(use_book ? "Use book" : "No book ", 480, 287)) ret = MOUSE_OVER_BOOK;
-    if (put_menu_text(randomize ? "Random ON" : "Random OFF", 480, 337)) ret = MOUSE_OVER_RAND;
-    if (put_menu_text(verbose ? "Verbose" : "No trace", 480, 387)) ret = MOUSE_OVER_VERB;
+    ret += put_menu_text(use_book ? "Use book" : "No book ", 480, 287, MOUSE_OVER_BOOK);
+    ret += put_menu_text(randomize ? "Random ON" : "Random OFF", 480, 337, MOUSE_OVER_RAND);
+    ret += put_menu_text(verbose ? "Verbose" : "No trace", 480, 387, MOUSE_OVER_VERB);
 
     SDL_RenderPresent(render);
 
@@ -382,10 +346,6 @@ static void move_animation(char* move)
 
 int trace = 0;
 
-extern char* board_ptr;
-#define B(x)        (*(board_ptr + (x)))
-#define Board(l, c) B(10 * (l) + (c))
-
 static void debug_actions(char ch)
 {
     if (ch == 't') {
@@ -395,9 +355,6 @@ static void debug_actions(char ch)
 
     int sq64 = mouse_to_sq64(mx, my);
     if (sq64 < 0) return;
-
-    if (ch == 'w') { printf("B(%d) = %d\n", sq64, Board(sq64 / 8, sq64 % 8)); }
-
     set_piece(ch, sq64 / 8, sq64 % 8);
 }
 
@@ -537,7 +494,7 @@ int main(int argc, char* argv[])
             move_animation(engine_move_str);
         }
     }
-    graphical_closes();
     init_communications();
+    graphical_exit(NULL);
     return 0;
 }
