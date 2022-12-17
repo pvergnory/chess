@@ -41,13 +41,42 @@ void log_info( const char* str )
     fputs( str, logfile );
 }
 
-int send_nl=1;
+static int send_nl=1;
 void send_str( const char* str )
 {
     fputs( str, stdout );
-    if (send_nl) fputs( "<- ", logfile);
+    if (send_nl) fputs( "-> ", logfile);
     fputs( str, logfile );
     send_nl = !!strchr( str, '\n' );
+}
+
+//------------------------------------------------------------------------------------
+// Time budget functions
+//------------------------------------------------------------------------------------
+
+static int time_ctrl_inc, moves_in_tc = 0, remaining_moves_in_tc = 0;
+
+static void set_time_ctrl( char* arg)
+{
+    char time_string[10];
+    sscanf( arg, "%d %s %d", &moves_in_tc, time_string, &time_ctrl_inc );
+    remaining_moves_in_tc = moves_in_tc;
+}
+
+static void set_next_play_time( int ms)
+{
+    time_budget_ms = ms - 1; // 1 ms margin
+    fprintf( logfile, "time per move = %ld ms\n", time_budget_ms );
+}
+
+static void budget_next_play_time( int remaining_time_ms)
+{
+    if (moves_in_tc) {
+        if (remaining_moves_in_tc == 0) remaining_moves_in_tc = moves_in_tc;
+        set_next_play_time( remaining_time_ms / remaining_moves_in_tc--);
+    }
+    else if (time_ctrl_inc) set_next_play_time( time_ctrl_inc * 1000);
+    else                    set_next_play_time( remaining_time_ms);
 }
 
 //------------------------------------------------------------------------------------
@@ -69,7 +98,6 @@ int main(int argc, char* argv[])
     char* name;
     char cmd[128];
     char* arg;
-    int moves_in_time_control;
 
     // Various initialisations
 
@@ -109,7 +137,7 @@ int main(int argc, char* argv[])
         if (fgets( cmd, 127, stdin) == NULL) continue;
         if (strlen( cmd ) < 2)               continue;
 
-        fprintf( logfile, "-> %s", cmd );
+        fprintf( logfile, "<- %s", cmd );
 
         // Remove '\n' at the end of the message
         arg = strchr( cmd, '\n'); if (arg) *arg = 0;
@@ -137,35 +165,9 @@ int main(int argc, char* argv[])
         else if (!strcmp(cmd, "setboard")) init_game( arg );
         else if (!strcmp(cmd, "undo"))     user_undo_move();
         else if (!strcmp(cmd, "random"))   randomize = 1 - randomize;
-
-        // time control messages
-        else if (!strcmp(cmd, "level")) {
-            char time_string[10];
-            int time_control_inc = 0;
-            sscanf( arg, "%d %s %d", &moves_in_time_control, time_string, &time_control_inc );
-            if (moves_in_time_control) {
-                int time_min, time_sec = 0;
-                sscanf( time_string, "%d:%d", &time_min, &time_sec );
-                time_budget_ms  = 60000 * time_min + 1000 * time_sec;
-                time_budget_ms /= moves_in_time_control;
-            }
-            else time_budget_ms = time_control_inc * 1000;
-            time_budget_ms--; // 1 ms margin
-            fprintf( logfile, "time per move = %ld ms\n", time_budget_ms );
-        } 
-        else if (!strcmp(cmd, "time")) {
-            if (moves_in_time_control) {
-                time_budget_ms = atoi(arg) * 10;
-                time_budget_ms /= moves_in_time_control;
-                time_budget_ms--; // 1 ms margin
-                fprintf( logfile, "time per move = %ld ms\n", time_budget_ms );
-            }
-        }
-        else if (!strcmp(cmd, "st")) {
-            time_budget_ms = atoi(arg) * 1000;
-            time_budget_ms--; // 1 ms margin
-            fprintf( logfile, "time per move = %ld ms\n", time_budget_ms );
-        }
+        else if (!strcmp(cmd, "level"))    set_time_ctrl( arg);
+        else if (!strcmp(cmd, "time"))     budget_next_play_time( atoi(arg) * 10);
+        else if (!strcmp(cmd, "st"))       set_next_play_time( atoi(arg) * 1000);
 
         // Silently ignore the following xboard commands
         else if (
@@ -190,7 +192,6 @@ int main(int argc, char* argv[])
             else if (go) {
 run_the_engine: game_state = THINK_GS;
                 prev_state = THINK_GS;
-                moves_in_time_control--;
 
                 // Run the chess engine in another thread if possible (under linux)
                 run( compute_next_move );
