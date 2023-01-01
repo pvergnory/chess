@@ -333,16 +333,14 @@ static void FEN_to_board(char *str)
         ch = *str++;
         ep += 10 * (ch - '0');
     }
-    else {
-        ep = NO_POSITION;
-        str++;
-    }
+    else ep = NO_POSITION;
+    str++;
 
     // get the "50 sterile moves" counter
     for (mv50 = 0; (ch = *str++) != ' '; mv50 = mv50 * 10 + ch - '0') continue;
 
     // get the "full moves" counter and deduce the ply
-    for (fm = 0; (ch = *str++) > '0'; fm = fm * 10 + ch - '0') continue;
+    for (fm = 0; (ch = *str++) >= '0'; fm = fm * 10 + ch - '0') continue;
     play      = 2 * (fm - 1) + (color == 'w') ? 0 : 1;
     nb_plays  = play;
     board_ptr = BOARD0 + BOARD_AND_BORDER_SIZE * play;
