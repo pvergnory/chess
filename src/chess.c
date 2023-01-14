@@ -120,7 +120,7 @@ static void load_game(void)
 #define PIECE_M   (2*MARGIN + (SQUARE_W - PIECE_W) / 2)
 #define TEXT_X    (3*MARGIN + 8*SQUARE_W + 2*MARGIN)
 #define TEXT_Y    (2*MARGIN + SQUARE_W/2 - 6)
-#define WINDOW_W  (3*MARGIN + 8*SQUARE_W + TEXT_Y + 150)
+#define WINDOW_W  (3*MARGIN + 8*SQUARE_W + TEXT_Y + 120)
 #define WINDOW_H  (3*MARGIN + 8*SQUARE_W + 40)
 
 static TTF_Font      *s_font, *font, *h_font;
@@ -325,7 +325,7 @@ static int display_all(int from64, int x, int y)
     ret += put_menu_text("Save", TEXT_X, TEXT_Y + 3*SQUARE_W, MOUSE_OVER_SAVE);
     ret += put_menu_text("Load", TEXT_X, TEXT_Y + 4*SQUARE_W, MOUSE_OVER_LOAD);
     ret += put_menu_text(use_book ? "Use book" : "No book ", TEXT_X, TEXT_Y + 5*SQUARE_W, MOUSE_OVER_BOOK);
-    ret += put_menu_text(randomize ? "Random ON" : "Random OFF", TEXT_X, TEXT_Y + 6*SQUARE_W, MOUSE_OVER_RAND);
+    ret += put_menu_text(randomize ? "Random" : "Ordered", TEXT_X, TEXT_Y + 6*SQUARE_W, MOUSE_OVER_RAND);
     ret += put_menu_text(verbose ? "Verbose" : "No trace", TEXT_X, TEXT_Y + 7*SQUARE_W, MOUSE_OVER_VERB);
     put_text(font, message[game_state], MARGIN, WINDOW_H - 30);
 
@@ -412,58 +412,58 @@ static int handle_user_turn( char* move_str)
         // Refresh the display
         mouse_over = display_all( from64, 0, 0);
 
-        // Wait for an event
+        // Check if a program sent us its move
+        if (receive_move(move_str))
+            if (try_move_str(move_str)) return ANIM_GS;
+
+        // Handle Mouse and keyboard events
         SDL_Event event;
-        while (SDL_WaitEventTimeout(&event, 20) == 0) {
-            // While waiting for an event, check if a program sent us its move
-            if (receive_move(move_str))
-                if (try_move_str(move_str)) return ANIM_GS;
-        }
+        while (SDL_PollEvent(&event)) {
+            // Event is 'Quit'
+            if (event.type == SDL_QUIT) return QUIT_GS;
 
-        // Event is 'Quit'
-        if (event.type == SDL_QUIT) return QUIT_GS;
+            // Event is a mouse click
+            if (event.type == SDL_MOUSEBUTTONDOWN) {
+                // handle mouse over a button
+                switch (mouse_over) {
+                case MOUSE_OVER_YOU: return THINK_GS;
+                case MOUSE_OVER_NEW: init_game(NULL); break;
+                case MOUSE_OVER_SAVE: save_game(); break;
+                case MOUSE_OVER_LOAD: load_game(); break;
+                case MOUSE_OVER_BOOK: use_book = !use_book; break;
+                case MOUSE_OVER_RAND: randomize = !randomize; break;
+                case MOUSE_OVER_VERB: verbose = !verbose; break;
 
-        // Event is a mouse click
-        if (event.type == SDL_MOUSEBUTTONDOWN) {
-            // handle mouse over a button
-            switch (mouse_over) {
-            case MOUSE_OVER_YOU: return THINK_GS;
-            case MOUSE_OVER_NEW: init_game(NULL); break;
-            case MOUSE_OVER_SAVE: save_game(); break;
-            case MOUSE_OVER_LOAD: load_game(); break;
-            case MOUSE_OVER_BOOK: use_book = !use_book; break;
-            case MOUSE_OVER_RAND: randomize = !randomize; break;
-            case MOUSE_OVER_VERB: verbose = !verbose; break;
-
-            // handle mouse over the board
-            default:
-                from64 = check_from(mouse_to_sq64(event.button.x, event.button.y));
-            }
-        }
-        else if (event.type == SDL_MOUSEBUTTONUP && from64 >= 0) {
-            int to64 = mouse_to_sq64(event.button.x, event.button.y);
-            if (get_move_to(from64, to64, move_str)) {
-                if (try_move_str(move_str)) {
-                    display_all(-1, 0, 0);
-                    return THINK_GS;
+                // handle mouse over the board
+                default:
+                    from64 = check_from(mouse_to_sq64(event.button.x, event.button.y));
                 }
             }
-            from64 = -1;
-        }
+            else if (event.type == SDL_MOUSEBUTTONUP && from64 >= 0) {
+                int to64 = mouse_to_sq64(event.button.x, event.button.y);
+                if (get_move_to(from64, to64, move_str)) {
+                    if (try_move_str(move_str)) {
+                        display_all(-1, 0, 0);
+                        return THINK_GS;
+                    }
+                }
+                from64 = -1;
+            }
 
-        // Event is a keyboard input
-        else if (event.type == SDL_KEYDOWN) {
-            if (event.key.keysym.sym == SDLK_LEFT) {        // undo
-                user_undo_move();
-                init_communications();
-            }
-            else if (event.key.keysym.sym == SDLK_RIGHT) {  // redo
-                user_redo_move();
-            }
-            else if (event.key.keysym.sym <= 'z') {         // debug
-                char ch = (char)(event.key.keysym.sym);
-                if (event.key.keysym.mod & KMOD_SHIFT) ch += ('A' - 'a');
-                debug_actions(ch);
+            // Event is a keyboard input
+            else if (event.type == SDL_KEYDOWN) {
+                if (event.key.keysym.sym == SDLK_LEFT) {        // undo
+                    user_undo_move();
+                    init_communications();
+                }
+                else if (event.key.keysym.sym == SDLK_RIGHT) {  // redo
+                    user_redo_move();
+                }
+                else if (event.key.keysym.sym <= 'z') {         // debug
+                    char ch = (char)(event.key.keysym.sym);
+                    if (event.key.keysym.mod & KMOD_SHIFT) ch += ('A' - 'a');
+                    debug_actions(ch);
+                }
             }
         }
     }
