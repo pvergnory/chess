@@ -116,13 +116,12 @@ static void load_game(void)
 
 #define SQUARE_W  62
 #define PIECE_W   60
-#define PIECE_H   60
 #define MARGIN    20
-#define TEXT_M    40
-#define PIECE_M   (MARGIN + (SQUARE_W - PIECE_W) / 2)
-#define TEXT_X    (2*MARGIN + 8*SQUARE_W + TEXT_M)
-#define WINDOW_W  (2*MARGIN + 8*SQUARE_W + TEXT_M + 160)
-#define WINDOW_H  (2*MARGIN + 8*SQUARE_W + 40)
+#define PIECE_M   (2*MARGIN + (SQUARE_W - PIECE_W) / 2)
+#define TEXT_X    (3*MARGIN + 8*SQUARE_W + 2*MARGIN)
+#define TEXT_Y    (2*MARGIN + SQUARE_W/2 - 6)
+#define WINDOW_W  (3*MARGIN + 8*SQUARE_W + TEXT_Y + 150)
+#define WINDOW_H  (3*MARGIN + 8*SQUARE_W + 40)
 
 static TTF_Font      *s_font, *font, *h_font;
 static SDL_Window*   win = NULL;
@@ -223,9 +222,9 @@ static void draw_piece(char piece, int x, int y)
     // get piece zone in pieces PNG file
     char* piece_ch = "pknbrqPKNBRQ";
     int p = strchr(piece_ch, piece) - piece_ch;
-    SDL_Rect sprite = { p * PIECE_W, 0, PIECE_W, PIECE_H };
+    SDL_Rect sprite = { p * PIECE_W, 0, PIECE_W, PIECE_W };
 
-    SDL_Rect dest   = { x, y, PIECE_W, PIECE_H};
+    SDL_Rect dest   = { x, y, PIECE_W, PIECE_W};
     SDL_RenderCopy(render, tex, &sprite, &dest);
 }
 
@@ -240,12 +239,12 @@ static int mouse_to_sq64(int x, int y)
 static void display_board()
 {
     SDL_Rect full_window = {0, 0, WINDOW_W, WINDOW_H};
-    SDL_Rect rect        = {0, 0, 8*SQUARE_W + 2*MARGIN, 8*SQUARE_W + 2*MARGIN};
+    SDL_Rect rect        = {MARGIN, MARGIN, 8*SQUARE_W + 2*MARGIN, 8*SQUARE_W + 2*MARGIN};
     char ch;
 
     // Clear the window
     SDL_RenderClear(render);
-    SDL_SetRenderDrawColor(render, 252, 237, 226, SDL_ALPHA_OPAQUE);
+    SDL_SetRenderDrawColor(render, 230, 217, 181, 128); // SDL_ALPHA_OPAQUE);
     SDL_RenderFillRect(render, &full_window);
 
     SDL_SetRenderDrawColor(render, 250, 238, 203, 255);
@@ -255,8 +254,8 @@ static void display_board()
     rect.h = SQUARE_W;
     for (int l = 0; l < 8; l++) {
         for (int c = 0; c < 8; c++) {
-            rect.x = MARGIN + c*SQUARE_W;
-            rect.y = MARGIN + (7 - l)*SQUARE_W;
+            rect.x = 2*MARGIN + c*SQUARE_W;
+            rect.y = 2*MARGIN + (7 - l)*SQUARE_W;
             if ((l + c) & 1) SDL_SetRenderDrawColor(render, 230, 217, 181, 255);
             else SDL_SetRenderDrawColor(render, 176, 126, 83, 255);
             SDL_RenderFillRect(render, &rect);
@@ -264,12 +263,12 @@ static void display_board()
             draw_piece(get_piece(l, c), PIECE_M + c*SQUARE_W, PIECE_M + (7 - l)*SQUARE_W);
         }
         ch = 'a' + l;
-        put_text(s_font, &ch, MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN/2 - 7);
-        put_text(s_font, &ch, MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN + 8*SQUARE_W);
+        put_text(s_font, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN + MARGIN/2 - 7);
+        put_text(s_font, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, 2*MARGIN + 8*SQUARE_W);
 
         ch = '8' - l;
-        put_text(s_font, &ch, MARGIN/2 - 3, MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W);
-        put_text(s_font, &ch, MARGIN + 8*SQUARE_W + 7, MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W);
+        put_text(s_font, &ch, MARGIN + MARGIN/2 - 3, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W);
+        put_text(s_font, &ch, 2*MARGIN + 8*SQUARE_W + 7, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W);
     }
 }
 
@@ -294,27 +293,27 @@ static int display_all(char piece, int x, int y)
     /* If a piece is picked by the user or is moved by move_animation(), draw it */
     if (piece) {
         if (x || y) draw_piece( piece, x, y );
-        else        draw_piece( piece, mx - PIECE_W/2, my - PIECE_H/2 );
+        else        draw_piece( piece, mx - PIECE_W/2, my - PIECE_W/2 );
     }
 
     /* Display turn and play iteration */
-    draw_piece( (play & 1) ? 'k': 'K', TEXT_X, MARGIN );
+    draw_piece( (play & 1) ? 'k': 'K', TEXT_X, PIECE_M );
     if (game_state == THINK_GS) {
         sprintf(play_str, "Playing %d ...", play);
-        put_text(font, play_str, TEXT_X, TEXT_M + SQUARE_W);
+        put_text(font, play_str, TEXT_X, TEXT_Y + SQUARE_W);
     }
     else {
         sprintf(play_str, "Play %d", play);
-        ret += put_menu_text(play_str, TEXT_X, TEXT_M + SQUARE_W, MOUSE_OVER_YOU);
+        ret += put_menu_text(play_str, TEXT_X, TEXT_Y + SQUARE_W, MOUSE_OVER_YOU);
     }
 
     /* Display other buttons and texts */
-    ret += put_menu_text("New", TEXT_X, TEXT_M + 2*SQUARE_W, MOUSE_OVER_NEW);
-    ret += put_menu_text("Save", TEXT_X, TEXT_M + 3*SQUARE_W, MOUSE_OVER_SAVE);
-    ret += put_menu_text("Load", TEXT_X, TEXT_M + 4*SQUARE_W, MOUSE_OVER_LOAD);
-    ret += put_menu_text(use_book ? "Use book" : "No book ", TEXT_X, TEXT_M + 5*SQUARE_W, MOUSE_OVER_BOOK);
-    ret += put_menu_text(randomize ? "Random ON" : "Random OFF", TEXT_X, TEXT_M + 6*SQUARE_W, MOUSE_OVER_RAND);
-    ret += put_menu_text(verbose ? "Verbose" : "No trace", TEXT_X, TEXT_M + 7*SQUARE_W, MOUSE_OVER_VERB);
+    ret += put_menu_text("New", TEXT_X, TEXT_Y + 2*SQUARE_W, MOUSE_OVER_NEW);
+    ret += put_menu_text("Save", TEXT_X, TEXT_Y + 3*SQUARE_W, MOUSE_OVER_SAVE);
+    ret += put_menu_text("Load", TEXT_X, TEXT_Y + 4*SQUARE_W, MOUSE_OVER_LOAD);
+    ret += put_menu_text(use_book ? "Use book" : "No book ", TEXT_X, TEXT_Y + 5*SQUARE_W, MOUSE_OVER_BOOK);
+    ret += put_menu_text(randomize ? "Random ON" : "Random OFF", TEXT_X, TEXT_Y + 6*SQUARE_W, MOUSE_OVER_RAND);
+    ret += put_menu_text(verbose ? "Verbose" : "No trace", TEXT_X, TEXT_Y + 7*SQUARE_W, MOUSE_OVER_VERB);
     put_text(font, message[game_state], MARGIN, WINDOW_H - 30);
 
     SDL_RenderPresent(render);
