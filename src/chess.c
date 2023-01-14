@@ -236,15 +236,16 @@ static int mouse_to_sq64(int x, int y)
     return c + 8*l;
 }
 
-static void display_board()
+static void display_board( int from64, int show_possible_moves)
 {
     SDL_Rect full_window = {0, 0, WINDOW_W, WINDOW_H};
     SDL_Rect rect        = {MARGIN, MARGIN, 8*SQUARE_W + 2*MARGIN, 8*SQUARE_W + 2*MARGIN};
+    SDL_Rect mark        = {0, 0, 8, 8};
     char ch;
 
     // Clear the window
     SDL_RenderClear(render);
-    SDL_SetRenderDrawColor(render, 230, 217, 181, 128); // SDL_ALPHA_OPAQUE);
+    SDL_SetRenderDrawColor(render, 230, 217, 181, SDL_ALPHA_OPAQUE);
     SDL_RenderFillRect(render, &full_window);
 
     SDL_SetRenderDrawColor(render, 250, 238, 203, 255);
@@ -252,15 +253,26 @@ static void display_board()
 
     rect.w = SQUARE_W;
     rect.h = SQUARE_W;
-    for (int l = 0; l < 8; l++) {
-        for (int c = 0; c < 8; c++) {
+    for (int l = 0, sq64 = 0; l < 8; l++) {
+        for (int c = 0; c < 8; c++, sq64++) {
             rect.x = 2*MARGIN + c*SQUARE_W;
             rect.y = 2*MARGIN + (7 - l)*SQUARE_W;
             if ((l + c) & 1) SDL_SetRenderDrawColor(render, 230, 217, 181, 255);
             else SDL_SetRenderDrawColor(render, 176, 126, 83, 255);
             SDL_RenderFillRect(render, &rect);
 
+            if (sq64 == from64) continue; // Don't draw the piece being moved
             draw_piece(get_piece(l, c), PIECE_M + c*SQUARE_W, PIECE_M + (7 - l)*SQUARE_W);
+
+            if (show_possible_moves) {
+                if (get_possible_moves_board(l, c)) {
+                    mark.x = 2*MARGIN + c*SQUARE_W + SQUARE_W/2 -4;
+                    mark.y = 2*MARGIN + (7 - l)*SQUARE_W + SQUARE_W/2 -4;
+                    if ((l + c) & 1) SDL_SetRenderDrawColor(render, 176, 126, 83, 255);
+                    else             SDL_SetRenderDrawColor(render, 230, 217, 181, 255);
+                    SDL_RenderFillRect(render, &mark);
+                }
+            }
         }
         ch = 'a' + l;
         put_text(s_font, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN + MARGIN/2 - 7);
@@ -280,7 +292,7 @@ static void display_board()
 #define MOUSE_OVER_RAND 6
 #define MOUSE_OVER_VERB 7
 
-static int display_all(char piece, int x, int y)
+static int display_all(int from64, int x, int y)
 {
     char play_str[20];
     int ret = 0;
@@ -288,10 +300,11 @@ static int display_all(char piece, int x, int y)
     SDL_GetMouseState(&mx, &my);
 
     /* Display the board and the pieces that are on it */
-    display_board();
+    display_board( from64, (from64 >= 0 && !x && !y) );
 
     /* If a piece is picked by the user or is moved by move_animation(), draw it */
-    if (piece) {
+    if (from64 >= 0) {
+        char piece = get_piece( from64 / 8, from64 % 8);
         if (x || y) draw_piece( piece, x, y );
         else        draw_piece( piece, mx - PIECE_W/2, my - PIECE_W/2 );
     }
@@ -332,14 +345,13 @@ static void move_animation(char* move)
     int dx = (c-c0)*SQUARE_W;
     int dy = (l0-l)*SQUARE_W;
 
-    char piece = get_piece(l, c);
-    set_piece(' ', l, c);
-
+    user_undo_move();
     for (int i = 1; i < 8; i++) {
-        display_all(piece, x0 + (i*dx)/8, y0 + (i*dy)/8);
+        display_all( 8*l0 + c0, x0 + (i*dx)/8, y0 + (i*dy)/8);
         SDL_Delay(8);
     }
-    set_piece(piece, l, c);
+    user_redo_move();
+    display_all(-1, 0, 0);
 }
 
 //------------------------------------------------------------------------------------
@@ -364,29 +376,24 @@ static void debug_actions(char ch)
 // Handle external actions (user, other program)
 //------------------------------------------------------------------------------------
 
-static void get_piece_from(int sq64, char* piece)
+static int check_from(int sq64)
 {
-    if (sq64 < 0) return;
+    if (sq64 < 0) return -1;
 
     // The player must pick one of his pieces
     char ch = get_piece(sq64 / 8, sq64 % 8);
-    if (ch == ' ') return;
-    if ((play & 1) && !(ch & 0x20)) return;
-    if (!(play & 1) && (ch & 0x20)) return;
-    *piece = ch;
-    set_piece(' ', sq64 / 8, sq64 % 8);
+    if (ch == ' ') return -1;
+    if ((play & 1) && !(ch & 0x20)) return -1;
+    if (!(play & 1) && (ch & 0x20)) return -1;
+
+    set_possible_moves_board(sq64 / 8, sq64 % 8);
+    return sq64;
 }
 
-static int get_move_to(int from64, int to64, char* piece, char* move_str)
+static int get_move_to(int from64, int to64, char* move_str)
 {
-    if (to64 < 0 || to64 > 63 || *piece == 0) return 0;
-
-    // put back the piece (it will be moved by try_move_str() )
-    set_piece(*piece, from64 / 8, from64 % 8);
-    *piece = 0;
-
     // Allow the player to put the piece back to its original place (no move)
-    if (to64 == from64) return 0;
+    if (to64 < 0 || to64 == from64) return 0;
 
     move_str[0] = 'a' + from64 % 8;
     move_str[1] = '1' + from64 / 8;
@@ -398,13 +405,12 @@ static int get_move_to(int from64, int to64, char* piece, char* move_str)
 
 static int handle_user_turn( char* move_str)
 {
-    char piece = 0;
-    int from64 = 0, to64 = 0;
+    int from64 = -1;  // -1 = "no piece currently picked by the user"
     int mouse_over;
 
     while (1) {
         // Refresh the display
-        mouse_over = display_all(piece, 0, 0);
+        mouse_over = display_all( from64, 0, 0);
 
         // Wait for an event
         SDL_Event event;
@@ -431,14 +437,18 @@ static int handle_user_turn( char* move_str)
 
             // handle mouse over the board
             default:
-                from64 = mouse_to_sq64(event.button.x, event.button.y);
-                get_piece_from(from64, &piece);
+                from64 = check_from(mouse_to_sq64(event.button.x, event.button.y));
             }
         }
-        else if (event.type == SDL_MOUSEBUTTONUP) {
-            to64 = mouse_to_sq64(event.button.x, event.button.y);
-            if (get_move_to(from64, to64, &piece, move_str))
-                if (try_move_str(move_str)) return THINK_GS;
+        else if (event.type == SDL_MOUSEBUTTONUP && from64 >= 0) {
+            int to64 = mouse_to_sq64(event.button.x, event.button.y);
+            if (get_move_to(from64, to64, move_str)) {
+                if (try_move_str(move_str)) {
+                    display_all(-1, 0, 0);
+                    return THINK_GS;
+                }
+            }
+            from64 = -1;
         }
 
         // Event is a keyboard input
@@ -487,8 +497,6 @@ int main(int argc, char* argv[])
             move_animation(move_str);
             game_state = THINK_GS;
         }
-        display_all(0, 0, 0);
-
         // To the program to play
         compute_next_move();
         if (game_state <= MAT_GS) {

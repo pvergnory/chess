@@ -774,6 +774,41 @@ static int in_check_mat(int side)
 }
 
 //------------------------------------------------------------------------------------
+// Routines to display the possible moves from a starting position
+//------------------------------------------------------------------------------------
+
+char possible_moves_board[80];
+void set_possible_moves_board( int l, int c)
+{
+    move_t move, list_of_moves[28];
+	move_t* m;
+
+    memset( (void*) possible_moves_board, 0, sizeof(possible_moves_board));
+
+    move.from = 10*l + c;
+
+    // Side check
+    int side = (play & 1) ? BLACK : WHITE;
+    if ((B(move.from) & COLORS) != side) return;
+
+    // List pseudo-legal moves
+    move_ptr = list_of_moves;
+    list_moves(move.from);
+
+    // Keep only legal moves
+    for (m = list_of_moves; m < move_ptr; m++) {
+        do_move(*m);
+        possible_moves_board[m->to] = (in_check(side, king_pos[play + 1])) ? 0 : 1;
+        undo_move();
+    }
+}
+
+char get_possible_moves_board( int l, int c)
+{
+    return possible_moves_board[10*l + c];
+}
+
+//------------------------------------------------------------------------------------
 // Do the move, but only if it is legal
 //------------------------------------------------------------------------------------
 
