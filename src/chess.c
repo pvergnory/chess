@@ -114,13 +114,15 @@ static void load_game(void)
 // Graphical elements
 //------------------------------------------------------------------------------------
 
-#define WINDOW_WIDTH  640
-#define WINDOW_HEIGHT 480
-#define SQUARE_WIDTH  50
-#define PIECE_WIDTH   32
-#define PIECE_HEIGHT  32
-#define MARGIN        20
-#define PIECE_MARGIN  (MARGIN + (SQUARE_WIDTH - PIECE_WIDTH) / 2)
+#define SQUARE_W  62
+#define PIECE_W   60
+#define PIECE_H   60
+#define MARGIN    20
+#define TEXT_M    40
+#define PIECE_M   (MARGIN + (SQUARE_W - PIECE_W) / 2)
+#define TEXT_X    (2*MARGIN + 8*SQUARE_W + TEXT_M)
+#define WINDOW_W  (2*MARGIN + 8*SQUARE_W + TEXT_M + 160)
+#define WINDOW_H  (2*MARGIN + 8*SQUARE_W + 40)
 
 static TTF_Font      *s_font, *font, *h_font;
 static SDL_Window*   win = NULL;
@@ -160,7 +162,7 @@ static void graphical_inits(char* name)
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) 
         graphical_exit( "SDL init error" );
 
-    win = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, 0);
+    win = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, 0);
     if (!win) graphical_exit( "SDL window creation error" );
 
     render = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -218,28 +220,27 @@ static void draw_piece(char piece, int x, int y)
 {
     if (piece == ' ') return;
 
-    char* piece_ch = "pknbrqPKNBRQ";
-
     // get piece zone in pieces PNG file
+    char* piece_ch = "pknbrqPKNBRQ";
     int p = strchr(piece_ch, piece) - piece_ch;
-    SDL_Rect sprite = { p * PIECE_WIDTH, 0, PIECE_WIDTH, PIECE_HEIGHT };
+    SDL_Rect sprite = { p * PIECE_W, 0, PIECE_W, PIECE_H };
 
-    SDL_Rect dest   = { x, y, PIECE_WIDTH, PIECE_HEIGHT};
+    SDL_Rect dest   = { x, y, PIECE_W, PIECE_H};
     SDL_RenderCopy(render, tex, &sprite, &dest);
 }
 
 static int mouse_to_sq64(int x, int y)
 {
-    int l = 7 - ((y - MARGIN) / SQUARE_WIDTH);
-    int c = (x - MARGIN) / SQUARE_WIDTH;
+    int l = 7 - ((y - MARGIN)/SQUARE_W);
+    int c = (x - MARGIN)/SQUARE_W;
     if (c < 0 || c > 7 || l < 0 || l > 7) return -1;
-    return c + 8 * l;
+    return c + 8*l;
 }
 
 static void display_board()
 {
-    SDL_Rect full_window = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
-    SDL_Rect rect        = {0, 0, 8 * SQUARE_WIDTH + 2 * MARGIN, 8 * SQUARE_WIDTH + 2 * MARGIN};
+    SDL_Rect full_window = {0, 0, WINDOW_W, WINDOW_H};
+    SDL_Rect rect        = {0, 0, 8*SQUARE_W + 2*MARGIN, 8*SQUARE_W + 2*MARGIN};
     char ch;
 
     // Clear the window
@@ -250,25 +251,25 @@ static void display_board()
     SDL_SetRenderDrawColor(render, 250, 238, 203, 255);
     SDL_RenderFillRect(render, &rect);
 
-    rect.w = SQUARE_WIDTH;
-    rect.h = SQUARE_WIDTH;
+    rect.w = SQUARE_W;
+    rect.h = SQUARE_W;
     for (int l = 0; l < 8; l++) {
         for (int c = 0; c < 8; c++) {
-            rect.x = MARGIN + SQUARE_WIDTH * c;
-            rect.y = MARGIN + SQUARE_WIDTH * (7 - l);
-            if ((l + c) & 1) SDL_SetRenderDrawColor(render, 245, 225, 164, 255);
-            else SDL_SetRenderDrawColor(render, 205, 146, 20, 255);
+            rect.x = MARGIN + c*SQUARE_W;
+            rect.y = MARGIN + (7 - l)*SQUARE_W;
+            if ((l + c) & 1) SDL_SetRenderDrawColor(render, 230, 217, 181, 255);
+            else SDL_SetRenderDrawColor(render, 176, 126, 83, 255);
             SDL_RenderFillRect(render, &rect);
 
-            draw_piece(get_piece(l, c), PIECE_MARGIN + SQUARE_WIDTH * c, PIECE_MARGIN + SQUARE_WIDTH * (7 - l));
+            draw_piece(get_piece(l, c), PIECE_M + c*SQUARE_W, PIECE_M + (7 - l)*SQUARE_W);
         }
         ch = 'a' + l;
-        put_text(s_font, &ch, MARGIN + SQUARE_WIDTH / 2 - 3 + l * SQUARE_WIDTH, MARGIN / 2 - 7);
-        put_text(s_font, &ch, MARGIN + SQUARE_WIDTH / 2 - 3 + l * SQUARE_WIDTH, MARGIN + 8 * SQUARE_WIDTH);
+        put_text(s_font, &ch, MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN/2 - 7);
+        put_text(s_font, &ch, MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN + 8*SQUARE_W);
 
         ch = '8' - l;
-        put_text(s_font, &ch, MARGIN / 2 - 3, MARGIN + SQUARE_WIDTH / 2 - 3 + l * SQUARE_WIDTH);
-        put_text(s_font, &ch, MARGIN + 8 * SQUARE_WIDTH + 7, MARGIN + SQUARE_WIDTH / 2 - 3 + l * SQUARE_WIDTH);
+        put_text(s_font, &ch, MARGIN/2 - 3, MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W);
+        put_text(s_font, &ch, MARGIN + 8*SQUARE_W + 7, MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W);
     }
 }
 
@@ -282,7 +283,7 @@ static void display_board()
 
 static int display_all(char piece, int x, int y)
 {
-    char number_str[10];
+    char play_str[20];
     int ret = 0;
 
     SDL_GetMouseState(&mx, &my);
@@ -290,31 +291,33 @@ static int display_all(char piece, int x, int y)
     /* Display the board and the pieces that are on it */
     display_board();
 
-    /* If a piece is picked by the user with his mouse or is moved by move_animation(), draw it */
+    /* If a piece is picked by the user or is moved by move_animation(), draw it */
     if (piece) {
-        if (x && y) draw_piece( piece, x, y );
-        else        draw_piece( piece, mx - PIECE_WIDTH/2, my - PIECE_HEIGHT/2 );
+        if (x || y) draw_piece( piece, x, y );
+        else        draw_piece( piece, mx - PIECE_W/2, my - PIECE_H/2 );
     }
 
-    /* Display texts */
-    put_text(font, message[game_state], MARGIN, WINDOW_HEIGHT - 30);
+    /* Display turn and play iteration */
+    draw_piece( (play & 1) ? 'k': 'K', TEXT_X, MARGIN );
+    if (game_state == THINK_GS) {
+        sprintf(play_str, "Playing %d ...", play);
+        put_text(font, play_str, TEXT_X, TEXT_M + SQUARE_W);
+    }
+    else {
+        sprintf(play_str, "Play %d", play);
+        ret += put_menu_text(play_str, TEXT_X, TEXT_M + SQUARE_W, MOUSE_OVER_YOU);
+    }
 
-    sprintf(number_str, "%d", play);
-    put_text(font, number_str, 480, 36);
-
-    draw_piece( (play & 1) ? 'k': 'K', 512, 25 );
-    ret += put_menu_text("to play", 552, 36, MOUSE_OVER_YOU);
-
-    ret += put_menu_text("New", 480, 87, MOUSE_OVER_NEW);
-    ret += put_menu_text("Save", 480, 137, MOUSE_OVER_SAVE);
-    ret += put_menu_text("Load", 480, 187, MOUSE_OVER_LOAD);
-
-    ret += put_menu_text(use_book ? "Use book" : "No book ", 480, 287, MOUSE_OVER_BOOK);
-    ret += put_menu_text(randomize ? "Random ON" : "Random OFF", 480, 337, MOUSE_OVER_RAND);
-    ret += put_menu_text(verbose ? "Verbose" : "No trace", 480, 387, MOUSE_OVER_VERB);
+    /* Display other buttons and texts */
+    ret += put_menu_text("New", TEXT_X, TEXT_M + 2*SQUARE_W, MOUSE_OVER_NEW);
+    ret += put_menu_text("Save", TEXT_X, TEXT_M + 3*SQUARE_W, MOUSE_OVER_SAVE);
+    ret += put_menu_text("Load", TEXT_X, TEXT_M + 4*SQUARE_W, MOUSE_OVER_LOAD);
+    ret += put_menu_text(use_book ? "Use book" : "No book ", TEXT_X, TEXT_M + 5*SQUARE_W, MOUSE_OVER_BOOK);
+    ret += put_menu_text(randomize ? "Random ON" : "Random OFF", TEXT_X, TEXT_M + 6*SQUARE_W, MOUSE_OVER_RAND);
+    ret += put_menu_text(verbose ? "Verbose" : "No trace", TEXT_X, TEXT_M + 7*SQUARE_W, MOUSE_OVER_VERB);
+    put_text(font, message[game_state], MARGIN, WINDOW_H - 30);
 
     SDL_RenderPresent(render);
-
     return ret;
 }
 
@@ -322,19 +325,19 @@ static void move_animation(char* move)
 {
     int c0 = move[0] - 'a';
     int l0 = move[1] - '1';
-    int x0 = PIECE_MARGIN + SQUARE_WIDTH * c0;
-    int y0 = PIECE_MARGIN + SQUARE_WIDTH * (7 - l0);
+    int x0 = PIECE_M + SQUARE_W * c0;
+    int y0 = PIECE_M + SQUARE_W * (7 - l0);
 
     int c = move[2] - 'a';
     int l = move[3] - '1';
-    int x = PIECE_MARGIN + SQUARE_WIDTH * c;
-    int y = PIECE_MARGIN + SQUARE_WIDTH * (7 - l);
+    int dx = (c-c0)*SQUARE_W;
+    int dy = (l0-l)*SQUARE_W;
 
     char piece = get_piece(l, c);
     set_piece(' ', l, c);
 
     for (int i = 1; i < 8; i++) {
-        display_all(piece, x0 + i * (x - x0) / 8, y0 + i * (y - y0) / 8);
+        display_all(piece, x0 + (i*dx)/8, y0 + (i*dy)/8);
         SDL_Delay(8);
     }
     set_piece(piece, l, c);
