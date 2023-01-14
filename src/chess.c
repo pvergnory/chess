@@ -230,8 +230,8 @@ static void draw_piece(char piece, int x, int y)
 
 static int mouse_to_sq64(int x, int y)
 {
-    int l = 7 - ((y - MARGIN)/SQUARE_W);
-    int c = (x - MARGIN)/SQUARE_W;
+    int l = 7 - ((y - 2*MARGIN)/SQUARE_W);
+    int c = (x - 2*MARGIN)/SQUARE_W;
     if (c < 0 || c > 7 || l < 0 || l > 7) return -1;
     return c + 8*l;
 }
@@ -415,6 +415,8 @@ static int handle_user_turn( char* move_str)
         // Check if a program sent us its move
         if (receive_move(move_str))
             if (try_move_str(move_str)) return ANIM_GS;
+
+        SDL_Delay(10);
 
         // Handle Mouse and keyboard events
         SDL_Event event;
