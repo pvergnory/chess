@@ -149,13 +149,13 @@ static void graphical_inits(char* name)
 {
     // Load the text fonts
     TTF_Init();
-    s_font = TTF_OpenFont("resources/FreeSans.ttf", 12);
+    s_font = TTF_OpenFont("resources/OptimusPrinceps.ttf", 14);
     if (s_font == NULL) exit_with_message( "error: small font not found" );
 
     font = TTF_OpenFont("resources/OptimusPrinceps.ttf", 20);
     if (font == NULL) exit_with_message( "error: normal font not found" );
 
-    h_font = TTF_OpenFont("resources/OptimusPrincepsSemiBold.ttf", 20);
+    h_font = TTF_OpenFont("resources/OptimusPrinceps.ttf", 22);
     if (h_font == NULL)  exit_with_message( "error: bold font not found" );
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) 
@@ -168,7 +168,7 @@ static void graphical_inits(char* name)
     if (!render) graphical_exit( "SDL render creation error");
 
     // load the chess pieces image
-    SDL_Surface* surface = IMG_Load("resources/Chess_Pieces.png");
+    SDL_Surface* surface = IMG_Load("resources/Chess_Pieces.svg");
     if (!surface) graphical_exit( "SDL image load error");
 
     // move it to a texture
@@ -182,8 +182,8 @@ static void graphical_inits(char* name)
 
 static void put_text(TTF_Font* f, char* text, int x, int y)
 {
-    SDL_Color textColor = {0, 0, 0, 0};
-    SDL_Surface* surface = TTF_RenderText_Solid(f, text, textColor);
+    SDL_Color textColor = {40, 40, 40, 0};
+    SDL_Surface* surface = TTF_RenderText_Blended(f, text, textColor);
     SDL_Rect text_rect = { x, y, surface->w, surface->h };
 
     text_texture = SDL_CreateTextureFromSurface(render, surface);
@@ -197,11 +197,12 @@ static int put_menu_text(char* text, int x, int y, int id)
 {
     int ret = 0;
 
-    SDL_Color textColor = {0, 0, 0, 0};
-    SDL_Surface* surface = TTF_RenderText_Solid(font, text, textColor);
+    SDL_Color textColor = {40, 40, 40, 0};
+    SDL_Surface* surface = TTF_RenderText_Blended(font, text, textColor);
     if (mx >= x && mx < x + surface->w && my >= y && my < y + surface->h) {
         SDL_FreeSurface(surface);
-        surface = TTF_RenderText_Solid(h_font, text, textColor);
+        textColor.r = 0, textColor.g = 0, textColor.b = 0;
+        surface = TTF_RenderText_Blended(h_font, text, textColor);
         ret = id;
     }
     SDL_Rect text_rect = { x, y, surface->w, surface->h };
@@ -327,7 +328,7 @@ static int display_all(int from64, int x, int y)
     ret += put_menu_text(use_book ? "Use book" : "No book ", TEXT_X, TEXT_Y + 5*SQUARE_W, MOUSE_OVER_BOOK);
     ret += put_menu_text(randomize ? "Random" : "Ordered", TEXT_X, TEXT_Y + 6*SQUARE_W, MOUSE_OVER_RAND);
     ret += put_menu_text(verbose ? "Verbose" : "No trace", TEXT_X, TEXT_Y + 7*SQUARE_W, MOUSE_OVER_VERB);
-    put_text(font, message[game_state], MARGIN, WINDOW_H - 30);
+    put_text(font, message[game_state], MARGIN, WINDOW_H - 32);
 
     SDL_RenderPresent(render);
     return ret;
