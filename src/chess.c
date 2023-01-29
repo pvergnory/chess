@@ -145,17 +145,31 @@ static void graphical_exit( char* error_msg)
     if (error_msg) exit(EXIT_FAILURE);
 }
 
+unsigned char font_ttf[] = {
+    #include "font_ttf.h"
+};
+
+unsigned char pieces_svg[] = {
+    #include "pieces_svg.h"
+};
+
 static void graphical_inits(char* name)
 {
+    SDL_RWops* rw_hdl;
+
     // Load the text fonts
     TTF_Init();
-    s_font = TTF_OpenFont("resources/OptimusPrinceps.ttf", 14);
+
+    rw_hdl = SDL_RWFromConstMem( (void*) font_ttf, sizeof(font_ttf) );
+    s_font = TTF_OpenFontRW( rw_hdl, 1, 14);
     if (s_font == NULL) exit_with_message( "error: small font not found" );
 
-    font = TTF_OpenFont("resources/OptimusPrinceps.ttf", 20);
+    rw_hdl = SDL_RWFromConstMem( (void*) font_ttf, sizeof(font_ttf) );
+    font   = TTF_OpenFontRW( rw_hdl, 1, 20);
     if (font == NULL) exit_with_message( "error: normal font not found" );
 
-    h_font = TTF_OpenFont("resources/OptimusPrinceps.ttf", 22);
+    rw_hdl = SDL_RWFromConstMem( (void*) font_ttf, sizeof(font_ttf) );
+    h_font = TTF_OpenFontRW( rw_hdl, 1, 22);
     if (h_font == NULL)  exit_with_message( "error: bold font not found" );
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) 
@@ -168,7 +182,8 @@ static void graphical_inits(char* name)
     if (!render) graphical_exit( "SDL render creation error");
 
     // load the chess pieces image
-    SDL_Surface* surface = IMG_Load("resources/Chess_Pieces.svg");
+    rw_hdl = SDL_RWFromConstMem( (void*) pieces_svg, sizeof(pieces_svg) );
+    SDL_Surface* surface = IMG_LoadTyped_RW( rw_hdl, 1, "svg" );
     if (!surface) graphical_exit( "SDL image load error");
 
     // move it to a texture
