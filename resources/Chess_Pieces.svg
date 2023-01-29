@@ -18,15 +18,6 @@
     <!-- Black King -->
     <path
        style="stroke:#ffffff;stroke-width:1.5"
-       d="m 77,41 v 5 c 0,0 5.068363,-1.912367 13,-2 C 98,44 103,46 103,46 V 41 C 103,41 98,39 90,39 82,39 77,41 77,41 Z" />
-    <path
-       style="stroke:#ffffff;stroke-width:1.5"
-       d="m 77,46 v 5 c 0,0 5,-2 13,-2 C 98,49 103,51 103,51 V 46 C 103,46 98,44 90,44 82,44 77,46 77,46 Z" />
-    <path
-       style="stroke:#ffffff;stroke-width:1.5"
-       d="m 77,51 c 0,0 8,-2 13,-2 5,0 13,2 13,2 0,0 -8,2 -13,2 -5,0 -13,-2 -13,-2 z" />
-    <path
-       style="stroke:#ffffff;stroke-width:1.5"
        d="m 88,10 h 4 v 2 h 2 v 4 h -2 v 2 h -4 v -2 h -2 v -4 h 2 z" />
     <path
        style="stroke:#ffffff;stroke-width:1.5"
@@ -37,6 +28,15 @@
     <path
        style="stroke:#ffffff;stroke-width:1.5"
        d="M 90,41 V 30 c 5,-5 9,-8 13,-8 4,0 8,2 8,7 C 111,35 103,41 103,41 Z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 77,41 v 5 c 0,0 5,-2 13,-2 C 98,44 103,46 103,46 V 41 C 103,41 98,39 90,39 82,39 77,41 77,41 Z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 77,46 v 5 c 0,0 5,-2 13,-2 C 98,49 103,51 103,51 V 46 C 103,46 98,44 90,44 82,44 77,46 77,46 Z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 77,51 c 0,0 8,-2 13,-2 5,0 13,2 13,2 0,0 -8,2 -13,2 -5,0 -13,-2 -13,-2 z" />
 
     <!-- Black Knight -->
     <path
@@ -163,15 +163,6 @@
     <!-- White King -->
     <path
        style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
-       d="m 437,41 v 5 c 0,0 5,-2 13,-2 C 458,44 463,46 463,46 v -5 c 0,0 -5,-2 -13,-2 C 442,39 437,41 437,41 Z" />
-    <path
-       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
-       d="m 437,46 v 5 c 0,0 5,-2 13,-2 C 458,49 463,51 463,51 v -5 c 0,0 -5,-2 -13,-2 C 442,44 437,46 437,46 Z" />
-    <path
-       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
-       d="m 437,51 c 0,0 8,-2 13,-2 5,0 13,2 13,2 0,0 -8,2 -13,2 -5,0 -13,-2 -13,-2 z" />
-    <path
-       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
        d="m 448,10 h 4 v 2 h 2 v 4 h -2 v 2 h -4 v -2 h -2 v -4 h 2 z" />
     <path
        style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
@@ -182,6 +173,15 @@
     <path
        style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
        d="M 450,41 V 30 c 5,-5 9,-8 13,-8 4,0 8,2 8,7 C 471,35 463,41 463,41 Z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 437,41 v 5 c 0,0 5,-2 13,-2 C 458,44 463,46 463,46 v -5 c 0,0 -5,-2 -13,-2 C 442,39 437,41 437,41 Z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 437,46 v 5 c 0,0 5,-2 13,-2 C 458,49 463,51 463,51 v -5 c 0,0 -5,-2 -13,-2 C 442,44 437,46 437,46 Z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 437,51 c 0,0 8,-2 13,-2 5,0 13,2 13,2 0,0 -8,2 -13,2 -5,0 -13,-2 -13,-2 z" />
 
     <!-- White Knight -->
     <path
