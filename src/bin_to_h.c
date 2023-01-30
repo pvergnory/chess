@@ -4,7 +4,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 3) return 1;
 
-    FILE* fi = fopen( argv[1], "r");
+    FILE* fi = fopen( argv[1], "rb");
     FILE* fo = fopen( argv[2], "w");
 
     int i = 0, l = 0;
