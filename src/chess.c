@@ -117,18 +117,19 @@ static void load_game(void)
 #define SQUARE_W  62
 #define PIECE_W   60
 #define MARGIN    20
-#define PIECE_M   (2*MARGIN + (SQUARE_W - PIECE_W) / 2)
+#define PIECE_M   ((SQUARE_W - PIECE_W) / 2)
 #define TEXT_X    (3*MARGIN + 8*SQUARE_W + 2*MARGIN)
 #define TEXT_Y    (2*MARGIN + SQUARE_W/2 - 6)
 #define WINDOW_W  (3*MARGIN + 8*SQUARE_W + TEXT_Y + 120)
 #define WINDOW_H  (3*MARGIN + 8*SQUARE_W + 40)
 
-static TTF_Font      *s_font, *font, *h_font;
+static TTF_Font      *s_font, *m_font, *font, *h_font;
 static SDL_Window*   win = NULL;
 static SDL_Texture*  tex = NULL;
 static SDL_Renderer* render = NULL;
 static SDL_Texture*  text_texture = NULL;
 static int           mx, my;  // mouse position
+static int           side_view = 0;
 
 static void exit_with_message( char* error_msg) {
     fprintf(stderr, "%s\n", error_msg);
@@ -163,6 +164,10 @@ static void graphical_inits(char* name)
     rw_hdl = SDL_RWFromConstMem( (void*) font_ttf, sizeof(font_ttf) );
     s_font = TTF_OpenFontRW( rw_hdl, 1, 14);
     if (s_font == NULL) exit_with_message( "error: small font not found" );
+
+    rw_hdl = SDL_RWFromConstMem( (void*) font_ttf, sizeof(font_ttf) );
+    m_font = TTF_OpenFontRW( rw_hdl, 1, 18);
+    if (m_font == NULL) exit_with_message( "error: medium font not found" );
 
     rw_hdl = SDL_RWFromConstMem( (void*) font_ttf, sizeof(font_ttf) );
     font   = TTF_OpenFontRW( rw_hdl, 1, 20);
@@ -246,18 +251,42 @@ static void draw_piece(char piece, int x, int y)
 
 static int mouse_to_sq64(int x, int y)
 {
-    int l = 7 - ((y - 2*MARGIN)/SQUARE_W);
-    int c = (x - 2*MARGIN)/SQUARE_W;
+    if (x < 2*MARGIN) return -1;
+    if (y < 2*MARGIN) return -1;
+	
+    int l = (side_view) ? (y - 2*MARGIN)/SQUARE_W : 7 - (y - 2*MARGIN)/SQUARE_W;
+    int c = (side_view) ? 7 - (x - 2*MARGIN)/SQUARE_W : (x - 2*MARGIN)/SQUARE_W;
     if (c < 0 || c > 7 || l < 0 || l > 7) return -1;
+
     return c + 8*l;
 }
 
-static void display_board( int from64, int show_possible_moves)
+#define MOUSE_OVER_YOU  1
+#define MOUSE_OVER_NEW  2
+#define MOUSE_OVER_SAVE 3
+#define MOUSE_OVER_LOAD 4
+#define MOUSE_OVER_BOOK 5
+#define MOUSE_OVER_RAND 6
+#define MOUSE_OVER_VERB 7
+#define MOUSE_OVER_BRD  8
+#define MOUSE_OVER_BB   9
+
+static int display_board( int from64, int show_possible_moves)
 {
     SDL_Rect full_window = {0, 0, WINDOW_W, WINDOW_H};
     SDL_Rect rect        = {MARGIN, MARGIN, 8*SQUARE_W + 2*MARGIN, 8*SQUARE_W + 2*MARGIN};
     SDL_Rect mark        = {0, 0, 8, 8};
     char ch;
+
+    // Detect if the mouse is over the board or its border
+    int ret = 0;
+    if (MARGIN <= mx && mx < 3*MARGIN + 8*SQUARE_W
+     && MARGIN <= my && my < 3*MARGIN + 8*SQUARE_W)
+        ret = MOUSE_OVER_BB;
+    if (2*MARGIN <= mx && mx < 2*MARGIN + 8*SQUARE_W
+     && 2*MARGIN <= my && my < 2*MARGIN + 8*SQUARE_W)
+        ret = MOUSE_OVER_BRD;
+    TTF_Font* f = (ret == MOUSE_OVER_BB) ? m_font : s_font;
 
     // Clear the window
     SDL_RenderClear(render);
@@ -271,52 +300,44 @@ static void display_board( int from64, int show_possible_moves)
     rect.h = SQUARE_W;
     for (int l = 0, sq64 = 0; l < 8; l++) {
         for (int c = 0; c < 8; c++, sq64++) {
-            rect.x = 2*MARGIN + c*SQUARE_W;
-            rect.y = 2*MARGIN + (7 - l)*SQUARE_W;
+            rect.x = 2*MARGIN + ((side_view) ? 7 - c : c)*SQUARE_W;
+            rect.y = 2*MARGIN + ((side_view) ? l : 7 - l)*SQUARE_W;
             if ((l + c) & 1) SDL_SetRenderDrawColor(render, 230, 217, 181, 255);
             else SDL_SetRenderDrawColor(render, 176, 126, 83, 255);
             SDL_RenderFillRect(render, &rect);
 
             if (sq64 == from64) continue; // Don't draw the piece being moved
-            draw_piece(get_piece(l, c), PIECE_M + c*SQUARE_W, PIECE_M + (7 - l)*SQUARE_W);
+            draw_piece( get_piece(l, c), rect.x + PIECE_M, rect.y + PIECE_M);
 
             if (show_possible_moves) {
                 if (get_possible_moves_board(l, c)) {
-                    mark.x = 2*MARGIN + c*SQUARE_W + SQUARE_W/2 -4;
-                    mark.y = 2*MARGIN + (7 - l)*SQUARE_W + SQUARE_W/2 -4;
+                    mark.x = rect.x + SQUARE_W/2 -4;
+                    mark.y = rect.y + SQUARE_W/2 -4;
                     if ((l + c) & 1) SDL_SetRenderDrawColor(render, 176, 126, 83, 255);
                     else             SDL_SetRenderDrawColor(render, 230, 217, 181, 255);
                     SDL_RenderFillRect(render, &mark);
                 }
             }
         }
-        ch = 'a' + l;
-        put_text(s_font, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN + MARGIN/2 - 7);
-        put_text(s_font, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, 2*MARGIN + 8*SQUARE_W);
+        ch = (side_view) ? 'h' - l : 'a' + l;
+        put_text(f, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN + MARGIN/2 - 7);
+        put_text(f, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, 2*MARGIN + 8*SQUARE_W + 2);
 
-        ch = '8' - l;
-        put_text(s_font, &ch, MARGIN + MARGIN/2 - 3, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W);
-        put_text(s_font, &ch, 2*MARGIN + 8*SQUARE_W + 7, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W);
+        ch = (side_view) ? '1' + l : '8' - l;
+        put_text(f, &ch, MARGIN + 8, 2*MARGIN + SQUARE_W/2 - 7 + l*SQUARE_W);
+        put_text(f, &ch, 2*MARGIN + 8*SQUARE_W + 8, 2*MARGIN + SQUARE_W/2 - 7 + l*SQUARE_W);
     }
+    return ret;
 }
-
-#define MOUSE_OVER_YOU  1
-#define MOUSE_OVER_NEW  2
-#define MOUSE_OVER_SAVE 3
-#define MOUSE_OVER_LOAD 4
-#define MOUSE_OVER_BOOK 5
-#define MOUSE_OVER_RAND 6
-#define MOUSE_OVER_VERB 7
 
 static int display_all(int from64, int x, int y)
 {
     char play_str[20];
-    int ret = 0;
 
     SDL_GetMouseState(&mx, &my);
 
     /* Display the board and the pieces that are on it */
-    display_board( from64, (from64 >= 0 && !x && !y) );
+    int ret = display_board( from64, (from64 >= 0 && !x && !y) );
 
     /* If a piece is picked by the user or is moved by move_animation(), draw it */
     if (from64 >= 0) {
@@ -326,7 +347,7 @@ static int display_all(int from64, int x, int y)
     }
 
     /* Display turn and play iteration */
-    draw_piece( (play & 1) ? 'k': 'K', TEXT_X, PIECE_M );
+    draw_piece( (play & 1) ? 'k': 'K', TEXT_X, 2*MARGIN + PIECE_M );
     if (game_state == THINK_GS) {
         sprintf(play_str, "Playing %d ...", play);
         put_text(font, play_str, TEXT_X, TEXT_Y + SQUARE_W);
@@ -353,18 +374,18 @@ static void move_animation(char* move)
 {
     int c0 = move[0] - 'a';
     int l0 = move[1] - '1';
-    int x0 = PIECE_M + SQUARE_W * c0;
-    int y0 = PIECE_M + SQUARE_W * (7 - l0);
+    int x0 = 2*MARGIN + ((side_view) ? 7 - c0 : c0)*SQUARE_W + PIECE_M;
+    int y0 = 2*MARGIN + ((side_view) ? l0 : 7 - l0)*SQUARE_W + PIECE_M -2; // -2 for a "lift" effect :)
 
     int c = move[2] - 'a';
     int l = move[3] - '1';
-    int dx = (c-c0)*SQUARE_W;
-    int dy = (l0-l)*SQUARE_W;
+    int dx = ((side_view) ? c0 - c : c - c0)*SQUARE_W;
+    int dy = ((side_view) ? l - l0 : l0 - l)*SQUARE_W;
 
     user_undo_move();
-    for (int i = 1; i < 8; i++) {
-        display_all( 8*l0 + c0, x0 + (i*dx)/8, y0 + (i*dy)/8);
-        SDL_Delay(8);
+    for (int i = 1; i < 12; i++) {
+        display_all( 8*l0 + c0, x0 + (i*dx)/12, y0 + (i*dy)/12);
+        SDL_Delay(5);
     }
     user_redo_move();
     display_all(-1, 0, 0);
@@ -444,17 +465,15 @@ static int handle_user_turn( char* move_str)
             if (event.type == SDL_MOUSEBUTTONDOWN) {
                 // handle mouse over a button
                 switch (mouse_over) {
-                case MOUSE_OVER_YOU: return THINK_GS;
-                case MOUSE_OVER_NEW: init_game(NULL); break;
+                case MOUSE_OVER_YOU:  return THINK_GS;
+                case MOUSE_OVER_NEW:  init_game(NULL); break;
                 case MOUSE_OVER_SAVE: save_game(); break;
                 case MOUSE_OVER_LOAD: load_game(); break;
                 case MOUSE_OVER_BOOK: use_book = !use_book; break;
                 case MOUSE_OVER_RAND: randomize = !randomize; break;
                 case MOUSE_OVER_VERB: verbose = !verbose; break;
-
-                // handle mouse over the board
-                default:
-                    from64 = check_from(mouse_to_sq64(event.button.x, event.button.y));
+                case MOUSE_OVER_BB:   side_view = !side_view; break;
+                case MOUSE_OVER_BRD:  from64 = check_from(mouse_to_sq64(event.button.x, event.button.y));
                 }
             }
             else if (event.type == SDL_MOUSEBUTTONUP && from64 >= 0) {
