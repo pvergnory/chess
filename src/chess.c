@@ -4,14 +4,14 @@
 #include <SDL2/SDL_ttf.h>
 #include "engine.h"
 
-char* message[7] = {
-    "It's your turn",
-    "Check !",
-    "Check Mat !",
-    "You win !",
-    "I am Pat",
-    "Thinking...",
-    "Playing this !"};
+char* message[14] = {
+    "it is white's turn to move", "it is black's turn to move",
+    "check !",              "check !",
+    "check mat !",          "check mat !",
+    "you win !",            "you win !",
+    "I am Pat",             "I am Pat",
+    "white Thinking...",    "black Thinking...",
+    "white Playing this !", "black Playing this !"};
 
 void log_info(const char* str)
 {
@@ -114,16 +114,17 @@ static void load_game(void)
 // Graphical elements
 //------------------------------------------------------------------------------------
 
-#define SQUARE_W  62
-#define PIECE_W   60
 #define MARGIN    20
+#define MENU_W   120
+#define BOTTOM_M  44
+#define SQUARE_W  64
+#define PIECE_W   60
 #define PIECE_M   ((SQUARE_W - PIECE_W) / 2)
-#define TEXT_X    (3*MARGIN + 8*SQUARE_W + 2*MARGIN)
-#define TEXT_Y    (2*MARGIN + SQUARE_W/2 - 6)
-#define WINDOW_W  (3*MARGIN + 8*SQUARE_W + TEXT_Y + 120)
-#define WINDOW_H  (3*MARGIN + 8*SQUARE_W + 40)
+#define TEXT_X    (4*MARGIN + 8*SQUARE_W)
+int WINDOW_W = 0;
+int WINDOW_H = 0;
 
-static TTF_Font      *s_font, *m_font, *font, *h_font;
+static TTF_Font      *s_font, *m_font, *font;
 static SDL_Window*   win = NULL;
 static SDL_Texture*  tex = NULL;
 static SDL_Renderer* render = NULL;
@@ -154,6 +155,35 @@ unsigned char pieces_svg[] = {
     #include "pieces_svg.h"
 };
 
+SDL_HitTestResult is_drag_or_resize_area(SDL_Window* win, const SDL_Point* area, void* data)
+{
+    (void) win;
+    (void) data;
+
+    if (area->x >= WINDOW_W - MARGIN && area->y >= MARGIN) return SDL_HITTEST_RESIZE_RIGHT;
+
+    if (area->x >= 2*MARGIN && area->x < 2*MARGIN + 8*SQUARE_W
+	 && area->y >= 2*MARGIN && area->y < 2*MARGIN + 8*SQUARE_W) {
+        int delta_x = (area->x - 2*MARGIN) % SQUARE_W;
+        int delta_y = (area->y - 2*MARGIN) % SQUARE_W;
+        if (delta_x < 5) return SDL_HITTEST_DRAGGABLE;
+        if (delta_x >= SQUARE_W - 5) return SDL_HITTEST_DRAGGABLE;
+        if (delta_y < 5) return SDL_HITTEST_DRAGGABLE;
+        if (delta_y >= SQUARE_W - 5) return SDL_HITTEST_DRAGGABLE;
+    }
+    if (3*MARGIN + 8*SQUARE_W <= area->x && 220 <= area->y && area->y < WINDOW_H - 72)
+        return SDL_HITTEST_DRAGGABLE;
+
+    return SDL_HITTEST_NORMAL;
+}
+static void set_resizable_params( int w)
+{
+    int menu_w = (w > 4*MARGIN + 8*SQUARE_W + MENU_W/2) ? MENU_W : 0;
+    WINDOW_W = 4*MARGIN + 8*SQUARE_W + menu_w;
+    WINDOW_H = 3*MARGIN + 8*SQUARE_W + (menu_w ? BOTTOM_M : MARGIN);
+    SDL_SetWindowSize(win, WINDOW_W, WINDOW_H);
+}
+
 static void graphical_inits(char* name)
 {
     SDL_RWops* rw_hdl;
@@ -173,28 +203,28 @@ static void graphical_inits(char* name)
     font   = TTF_OpenFontRW( rw_hdl, 1, 20);
     if (font == NULL) exit_with_message( "error: normal font not found" );
 
-    rw_hdl = SDL_RWFromConstMem( (void*) font_ttf, sizeof(font_ttf) );
-    h_font = TTF_OpenFontRW( rw_hdl, 1, 22);
-    if (h_font == NULL)  exit_with_message( "error: bold font not found" );
-
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) 
         graphical_exit( "SDL init error" );
 
-    win = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, 0);
+    win = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 712, 606, SDL_WINDOW_RESIZABLE);
     if (!win) graphical_exit( "SDL window creation error" );
 
     render = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!render) graphical_exit( "SDL render creation error");
 
-    // load the chess pieces image
+    // Load the chess pieces image and make a texture of it
     rw_hdl = SDL_RWFromConstMem( (void*) pieces_svg, sizeof(pieces_svg) );
     SDL_Surface* surface = IMG_LoadTyped_RW( rw_hdl, 1, "svg" );
     if (!surface) graphical_exit( "SDL image load error");
-
-    // move it to a texture
     tex = SDL_CreateTextureFromSurface(render, surface);
     SDL_FreeSurface(surface);
     if (!tex)  graphical_exit( "SDL texture creation error");
+
+    set_resizable_params(712); // (712 for pieces drawing size of 60x60 and menu)
+
+    SDL_SetWindowHitTest(win, is_drag_or_resize_area, NULL);
+
+    SDL_SetWindowBordered( win, SDL_FALSE );
 
     // Capture also 1st click event than regains the window
     SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
@@ -204,7 +234,7 @@ static void put_text(TTF_Font* f, char* text, int x, int y)
 {
     SDL_Color textColor = {40, 40, 40, 0};
     SDL_Surface* surface = TTF_RenderText_Blended(f, text, textColor);
-    SDL_Rect text_rect = { x, y, surface->w, surface->h };
+    SDL_Rect text_rect = { x - surface->w/2, y, surface->w, surface->h };
 
     text_texture = SDL_CreateTextureFromSurface(render, surface);
     SDL_FreeSurface(surface);
@@ -219,17 +249,16 @@ static int put_menu_text(char* text, int x, int y, int id)
 
     SDL_Color textColor = {40, 40, 40, 0};
     SDL_Surface* surface = TTF_RenderText_Blended(font, text, textColor);
-    if (mx >= x && mx < x + surface->w && my >= y && my < y + surface->h) {
-        SDL_FreeSurface(surface);
-        textColor.r = 0, textColor.g = 0, textColor.b = 0;
-        surface = TTF_RenderText_Blended(h_font, text, textColor);
+    if (x <= mx && mx < x + surface->w + 20 && y <= my && my < y + surface->h + 6) {
+        SDL_Rect rect = { x, y, surface->w + 20, surface->h + 6};
+        SDL_SetRenderDrawColor(render, 250, 238, 203, 255);
+        SDL_RenderFillRect(render, &rect);
         ret = id;
     }
-    SDL_Rect text_rect = { x, y, surface->w, surface->h };
-
     text_texture = SDL_CreateTextureFromSurface(render, surface);
     SDL_FreeSurface(surface);
 
+    SDL_Rect text_rect = {x + 10, y + 3, surface->w, surface->h};
     SDL_RenderCopy(render, text_texture, NULL, &text_rect);
     SDL_DestroyTexture(text_texture);
 
@@ -261,15 +290,16 @@ static int mouse_to_sq64(int x, int y)
     return c + 8*l;
 }
 
-#define MOUSE_OVER_YOU  1
-#define MOUSE_OVER_NEW  2
-#define MOUSE_OVER_SAVE 3
-#define MOUSE_OVER_LOAD 4
+#define MOUSE_OVER_NEW  1
+#define MOUSE_OVER_PLAY 2
+#define MOUSE_OVER_BACK 3
+#define MOUSE_OVER_FWD  4
 #define MOUSE_OVER_BOOK 5
 #define MOUSE_OVER_RAND 6
 #define MOUSE_OVER_VERB 7
 #define MOUSE_OVER_BRD  8
 #define MOUSE_OVER_BB   9
+#define MOUSE_OVER_QUIT 10
 
 static int display_board( int from64, int show_possible_moves)
 {
@@ -281,12 +311,13 @@ static int display_board( int from64, int show_possible_moves)
     // Detect if the mouse is over the board or its border
     int ret = 0;
     if (MARGIN <= mx && mx < 3*MARGIN + 8*SQUARE_W
-     && MARGIN <= my && my < 3*MARGIN + 8*SQUARE_W)
-        ret = MOUSE_OVER_BB;
+     && MARGIN <= my && my < 3*MARGIN + 8*SQUARE_W) ret = MOUSE_OVER_BB;
+
     if (2*MARGIN <= mx && mx < 2*MARGIN + 8*SQUARE_W
-     && 2*MARGIN <= my && my < 2*MARGIN + 8*SQUARE_W)
-        ret = MOUSE_OVER_BRD;
+     && 2*MARGIN <= my && my < 2*MARGIN + 8*SQUARE_W) ret = MOUSE_OVER_BRD;
+
     TTF_Font* f = (ret == MOUSE_OVER_BB) ? m_font : s_font;
+    int indices_dy = (ret == MOUSE_OVER_BB) ? -9 : -7;
 
     // Clear the window
     SDL_RenderClear(render);
@@ -295,6 +326,8 @@ static int display_board( int from64, int show_possible_moves)
 
     SDL_SetRenderDrawColor(render, 250, 238, 203, 255);
     SDL_RenderFillRect(render, &rect);
+
+    int msq64 = mouse_to_sq64(mx, my);
 
     rect.w = SQUARE_W;
     rect.h = SQUARE_W;
@@ -307,7 +340,10 @@ static int display_board( int from64, int show_possible_moves)
             SDL_RenderFillRect(render, &rect);
 
             if (sq64 == from64) continue; // Don't draw the piece being moved
-            draw_piece( get_piece(l, c), rect.x + PIECE_M, rect.y + PIECE_M);
+            char p = get_piece(l, c);
+            if (sq64 == msq64 && ((play & 1) != !(p & 0x20)))
+                 draw_piece( p, rect.x + PIECE_M, rect.y + PIECE_M -3);
+            else draw_piece( p, rect.x + PIECE_M, rect.y + PIECE_M);
 
             if (show_possible_moves) {
                 if (get_possible_moves_board(l, c)) {
@@ -320,19 +356,21 @@ static int display_board( int from64, int show_possible_moves)
             }
         }
         ch = (side_view) ? 'h' - l : 'a' + l;
-        put_text(f, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN + MARGIN/2 - 7);
+        put_text(f, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, MARGIN + MARGIN/2 + indices_dy);
         put_text(f, &ch, 2*MARGIN + SQUARE_W/2 - 3 + l*SQUARE_W, 2*MARGIN + 8*SQUARE_W + 2);
 
         ch = (side_view) ? '1' + l : '8' - l;
-        put_text(f, &ch, MARGIN + 8, 2*MARGIN + SQUARE_W/2 - 7 + l*SQUARE_W);
-        put_text(f, &ch, 2*MARGIN + 8*SQUARE_W + 8, 2*MARGIN + SQUARE_W/2 - 7 + l*SQUARE_W);
+        put_text(f, &ch, 3*MARGIN/2, 2*MARGIN + SQUARE_W/2 + indices_dy + l*SQUARE_W);
+        put_text(f, &ch, 5*MARGIN/2 + 8*SQUARE_W, 2*MARGIN + SQUARE_W/2 + indices_dy + l*SQUARE_W);
     }
     return ret;
 }
 
 static int display_all(int from64, int x, int y)
 {
-    char play_str[20];
+    char msg_str[64];
+
+    set_resizable_params(WINDOW_W);
 
     SDL_GetMouseState(&mx, &my);
 
@@ -346,25 +384,31 @@ static int display_all(int from64, int x, int y)
         else        draw_piece( piece, mx - PIECE_W/2, my - PIECE_W/2 );
     }
 
-    /* Display turn and play iteration */
-    draw_piece( (play & 1) ? 'k': 'K', TEXT_X, 2*MARGIN + PIECE_M );
-    if (game_state == THINK_GS) {
-        sprintf(play_str, "Playing %d ...", play);
-        put_text(font, play_str, TEXT_X, TEXT_Y + SQUARE_W);
-    }
-    else {
-        sprintf(play_str, "Play %d", play);
-        ret += put_menu_text(play_str, TEXT_X, TEXT_Y + SQUARE_W, MOUSE_OVER_YOU);
+    /* Display buttons and texts */
+    if (WINDOW_W > WINDOW_H) {
+        ret += put_menu_text("New",  TEXT_X, 40, MOUSE_OVER_NEW );
+        ret += put_menu_text("Play", TEXT_X, 80, MOUSE_OVER_PLAY);
+        ret += put_menu_text(use_book  ? "Use book" : "No book ", TEXT_X, 120, MOUSE_OVER_BOOK);
+        ret += put_menu_text(randomize ? "Random"  : "Ordered",   TEXT_X, 160, MOUSE_OVER_RAND);
+        ret += put_menu_text(verbose   ? "Verbose" : "No trace",  TEXT_X, 200, MOUSE_OVER_VERB);
+        ret += put_menu_text("Quit", TEXT_X, WINDOW_H - 72, MOUSE_OVER_QUIT);
+        ret += put_menu_text(" < ", MARGIN,                     WINDOW_H - 40, MOUSE_OVER_BACK);
+        ret += put_menu_text(" > ", 3*MARGIN + 8*SQUARE_W - 36, WINDOW_H - 40, MOUSE_OVER_FWD);
+        sprintf(msg_str, "Play %d : %s", play + 1, message[2*game_state + (play & 1)]);
+        put_text(font, msg_str, 2*MARGIN + 4*SQUARE_W, WINDOW_H - 34);
     }
 
-    /* Display other buttons and texts */
-    ret += put_menu_text("New", TEXT_X, TEXT_Y + 2*SQUARE_W, MOUSE_OVER_NEW);
-    ret += put_menu_text("Save", TEXT_X, TEXT_Y + 3*SQUARE_W, MOUSE_OVER_SAVE);
-    ret += put_menu_text("Load", TEXT_X, TEXT_Y + 4*SQUARE_W, MOUSE_OVER_LOAD);
-    ret += put_menu_text(use_book ? "Use book" : "No book ", TEXT_X, TEXT_Y + 5*SQUARE_W, MOUSE_OVER_BOOK);
-    ret += put_menu_text(randomize ? "Random" : "Ordered", TEXT_X, TEXT_Y + 6*SQUARE_W, MOUSE_OVER_RAND);
-    ret += put_menu_text(verbose ? "Verbose" : "No trace", TEXT_X, TEXT_Y + 7*SQUARE_W, MOUSE_OVER_VERB);
-    put_text(font, message[game_state], MARGIN, WINDOW_H - 32);
+    // Draw the exit cross
+    if (WINDOW_W - 15 <= mx && mx <= WINDOW_W - 5 && 5 <= my && my <= 15) ret = MOUSE_OVER_QUIT;
+    if (ret == MOUSE_OVER_QUIT) {
+        SDL_Rect rect = {WINDOW_W - MARGIN, 0, MARGIN, MARGIN};
+        SDL_SetRenderDrawColor(render, 250, 238, 203, 255);
+        SDL_RenderFillRect(render, &rect);
+        SDL_SetRenderDrawColor(render, 0, 0, 0, 255);
+    }
+    else SDL_SetRenderDrawColor(render, 176, 126, 83, 255);
+    SDL_RenderDrawLine(render, WINDOW_W - 15, 5, WINDOW_W -5, 15);
+    SDL_RenderDrawLine(render, WINDOW_W - 15, 15, WINDOW_W -5, 5);
 
     SDL_RenderPresent(render);
     return ret;
@@ -465,13 +509,14 @@ static int handle_user_turn( char* move_str)
             if (event.type == SDL_MOUSEBUTTONDOWN) {
                 // handle mouse over a button
                 switch (mouse_over) {
-                case MOUSE_OVER_YOU:  return THINK_GS;
                 case MOUSE_OVER_NEW:  init_game(NULL); break;
-                case MOUSE_OVER_SAVE: save_game(); break;
-                case MOUSE_OVER_LOAD: load_game(); break;
+                case MOUSE_OVER_PLAY: return THINK_GS;
+                case MOUSE_OVER_BACK: user_undo_move(); init_communications(); break;
+                case MOUSE_OVER_FWD:  user_redo_move(); break;
                 case MOUSE_OVER_BOOK: use_book = !use_book; break;
                 case MOUSE_OVER_RAND: randomize = !randomize; break;
                 case MOUSE_OVER_VERB: verbose = !verbose; break;
+                case MOUSE_OVER_QUIT: return QUIT_GS;
                 case MOUSE_OVER_BB:   side_view = !side_view; break;
                 case MOUSE_OVER_BRD:  from64 = check_from(mouse_to_sq64(event.button.x, event.button.y));
                 }
@@ -489,6 +534,7 @@ static int handle_user_turn( char* move_str)
 
             // Event is a keyboard input
             else if (event.type == SDL_KEYDOWN) {
+                char ch = (char)(event.key.keysym.sym);
                 if (event.key.keysym.sym == SDLK_LEFT) {        // undo
                     user_undo_move();
                     init_communications();
@@ -496,11 +542,19 @@ static int handle_user_turn( char* move_str)
                 else if (event.key.keysym.sym == SDLK_RIGHT) {  // redo
                     user_redo_move();
                 }
-                else if (event.key.keysym.sym <= 'z') {         // debug
-                    char ch = (char)(event.key.keysym.sym);
+                else if (ch == 'v' || ch == 'm' || ch == 'h' || ch == SDLK_ESCAPE) {
+                    WINDOW_W = 2*WINDOW_H + MENU_W - WINDOW_W;  // toggle view mode
+                }
+                else if (ch <= 'z') {                           // debug
                     if (event.key.keysym.mod & KMOD_SHIFT) ch += ('A' - 'a');
                     debug_actions(ch);
                 }
+            }
+
+            // Event is a window resizing event
+            else if (event.type == SDL_WINDOWEVENT) {
+                if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+                    set_resizable_params(event.window.data1);
             }
         }
     }
@@ -522,6 +576,7 @@ int main(int argc, char* argv[])
     else name = argv[0];
     graphical_inits(name);
     init_game(NULL);
+    load_game();
     randomize = 1;
     init_communications();
 
@@ -535,12 +590,17 @@ int main(int argc, char* argv[])
             game_state = THINK_GS;
         }
         // To the program to play
+       SDL_Cursor* cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+       SDL_SetCursor(cursor);
         compute_next_move();
+        cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+        SDL_SetCursor(cursor);
         if (game_state <= MAT_GS) {
             transmit_move(engine_move_str);
             move_animation(engine_move_str);
         }
     }
+    if (play) save_game();
     init_communications();
     graphical_exit(NULL);
     return 0;
