@@ -117,10 +117,10 @@ static void load_game(void)
 #define MARGIN    20
 #define MENU_W   120
 #define BOTTOM_M  44
-#define SQUARE_W  64
-#define PIECE_W   60
-#define PIECE_M   ((SQUARE_W - PIECE_W) / 2)
-#define TEXT_X    (4*MARGIN + 8*SQUARE_W)
+int SQUARE_W;
+int PIECE_W;
+int PIECE_M;
+int TEXT_X;
 int WINDOW_W = 0;
 int WINDOW_H = 0;
 
@@ -160,7 +160,18 @@ SDL_HitTestResult is_drag_or_resize_area(SDL_Window* win, const SDL_Point* area,
     (void) win;
     (void) data;
 
-    if (area->x >= WINDOW_W - MARGIN && area->y >= MARGIN) return SDL_HITTEST_RESIZE_RIGHT;
+    if (area->x < MARGIN) {
+        if (area->y < MARGIN)             return SDL_HITTEST_RESIZE_TOPLEFT;
+        if (area->y >= WINDOW_H - MARGIN) return SDL_HITTEST_RESIZE_BOTTOMLEFT;
+        return SDL_HITTEST_RESIZE_LEFT;
+    }
+    if (area->x >= WINDOW_W - MARGIN) {
+        if (area->y < MARGIN)             return SDL_HITTEST_NORMAL;
+        if (area->y >= WINDOW_H - MARGIN) return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
+        return SDL_HITTEST_RESIZE_RIGHT;
+    }
+    if (area->y < MARGIN)             return SDL_HITTEST_RESIZE_TOP;
+    if (area->y >= WINDOW_H - MARGIN) return SDL_HITTEST_RESIZE_BOTTOM;
 
     if (area->x >= 2*MARGIN && area->x < 2*MARGIN + 8*SQUARE_W
 	 && area->y >= 2*MARGIN && area->y < 2*MARGIN + 8*SQUARE_W) {
@@ -176,11 +187,29 @@ SDL_HitTestResult is_drag_or_resize_area(SDL_Window* win, const SDL_Point* area,
 
     return SDL_HITTEST_NORMAL;
 }
-static void set_resizable_params( int w)
+
+static void set_resizable_params(int w, int h)
 {
-    int menu_w = (w > 4*MARGIN + 8*SQUARE_W + MENU_W/2) ? MENU_W : 0;
+    int prev_w = WINDOW_W, prev_h = WINDOW_H;
+
+    int menu_w = (w > h + MENU_W/2) ? MENU_W : 0;
+    SQUARE_W = (h - 3*MARGIN - (menu_w ? BOTTOM_M : MARGIN) )/8;
+    if (SQUARE_W < 38) SQUARE_W = 38;
+    PIECE_W  = SQUARE_W - 4;
+    PIECE_M  = (SQUARE_W - PIECE_W) / 2;
+    TEXT_X   = 4*MARGIN + 8*SQUARE_W;
     WINDOW_W = 4*MARGIN + 8*SQUARE_W + menu_w;
     WINDOW_H = 3*MARGIN + 8*SQUARE_W + (menu_w ? BOTTOM_M : MARGIN);
+
+    if (WINDOW_W != prev_w || WINDOW_H != prev_h) {
+
+        // Load the chess pieces image and scale them to the intended size
+        SDL_RWops* rw_hdl = SDL_RWFromConstMem( (void*) pieces_svg, sizeof(pieces_svg) );
+        SDL_Surface* surface = IMG_LoadSizedSVG_RW( rw_hdl, 12*PIECE_W, PIECE_W);
+        if (surface == NULL) exit_with_message( "error: pieces image not found" );
+        tex = SDL_CreateTextureFromSurface(render, surface);
+        SDL_FreeSurface(surface);
+    }
     SDL_SetWindowSize(win, WINDOW_W, WINDOW_H);
 }
 
@@ -212,15 +241,7 @@ static void graphical_inits(char* name)
     render = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!render) graphical_exit( "SDL render creation error");
 
-    // Load the chess pieces image and make a texture of it
-    rw_hdl = SDL_RWFromConstMem( (void*) pieces_svg, sizeof(pieces_svg) );
-    SDL_Surface* surface = IMG_LoadTyped_RW( rw_hdl, 1, "svg" );
-    if (!surface) graphical_exit( "SDL image load error");
-    tex = SDL_CreateTextureFromSurface(render, surface);
-    SDL_FreeSurface(surface);
-    if (!tex)  graphical_exit( "SDL texture creation error");
-
-    set_resizable_params(712); // (712 for pieces drawing size of 60x60 and menu)
+    set_resizable_params(712, 606); // (712 for pieces drawing size of 60x60)
 
     SDL_SetWindowHitTest(win, is_drag_or_resize_area, NULL);
 
@@ -370,7 +391,7 @@ static int display_all(int from64, int x, int y)
 {
     char msg_str[64];
 
-    set_resizable_params(WINDOW_W);
+    set_resizable_params(WINDOW_W, WINDOW_H);
 
     SDL_GetMouseState(&mx, &my);
 
@@ -554,7 +575,7 @@ static int handle_user_turn( char* move_str)
             // Event is a window resizing event
             else if (event.type == SDL_WINDOWEVENT) {
                 if (event.window.event == SDL_WINDOWEVENT_RESIZED)
-                    set_resizable_params(event.window.data1);
+                    set_resizable_params(event.window.data1, event.window.data2);
             }
         }
     }
