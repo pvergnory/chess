@@ -45,16 +45,17 @@ char *board_ptr = BOARD0;
 #define Board(l, c) B(10 * (l) + (c))
 
 // Move structure and move tables
-#define PROMOTE    1
-#define EN_PASSANT 2
+#define EN_PASSANT 1
+#define PROMO_N    2  // set to be KNIGHT - PAWN
 #define L_ROOK     3
 #define R_ROOK     4
-#define BR_CASTLE  5
-#define BL_CASTLE  6
-#define B_PAWN2    7
+#define PROMO_Q    5  // set to be QUEEN - PAWN
+#define BR_CASTLE  6
+#define BL_CASTLE  7
 #define WR_CASTLE  8
 #define WL_CASTLE  9
-#define W_PAWN2    10
+#define B_PAWN2    10
+#define W_PAWN2    11
 
 typedef struct {
     union {
@@ -70,7 +71,7 @@ typedef struct {
 
 static move_t best_sequence[LEVEL_MAX + 1], best_move[LEVEL_MAX + 1], next_best[LEVEL_MAX + 1];
 
-// Transposition table to stores move choices for each encountered board situations
+// Transposition table to store move choices for each encountered board situations
 #define NEW_BOARD   0
 #define OTHER_DEPTH 1
 #define UPPER_BOUND 2
@@ -135,7 +136,7 @@ static char castles[MAX_TURNS + 2];  // (even index: white castle, odd index: bl
 // Keep track of kings positions
 static int king_pos[MAX_TURNS + 2];  // (even index: white king, odd index: black king)
 
-//                     -   P,   P,    K,   N,   B,   R,   Q
+//                                  -   P,   P,    K,   N,   B,   R,   Q
 static const int piece_value[33] = {0, 100, 100, 4000, 300, 314, 500, 900,
                                     0, -100, -100, -4000, -300, -314, -500, -900,
                                     0, 100, 100, 4000, 300, 314, 500, 900,
@@ -204,7 +205,10 @@ static int str_to_move(char *str, move_t *m)
         else if (m->from == 74 && m->to == 72) m->special = BL_CASTLE;
     }
     else if (type <= PAWN) {
-        if (m->to <= 7 || m->to >= 70) m->special = PROMOTE;
+        if (m->to <= 7 || m->to >= 70) {
+            m->special = PROMO_Q;
+            if (str[4] == 'n') m->special = PROMO_N;
+        }
         else if (m->to - m->from == 20) m->special = W_PAWN2;
         else if (m->from - m->to == 20) m->special = B_PAWN2;
         else if (m->eaten == 0 && (m->to % 10) != (m->from % 10)) m->special = EN_PASSANT;
@@ -223,7 +227,8 @@ static char *move_str(move_t m)
     if (m.val == 0) return "";
     sprintf(mv_str, "%c%c%c%c", 'a' + m.from % 10, '1' + m.from / 10,
             'a' + m.to % 10, '1' + m.to / 10);
-    if (m.special == PROMOTE) sprintf(mv_str + 4, "q");
+    if (m.special == PROMO_Q) sprintf(mv_str + 4, "q");
+    if (m.special == PROMO_N) sprintf(mv_str + 4, "n");
     return mv_str;
 }
 
@@ -431,8 +436,9 @@ static void do_move(move_t m)
         B(70) = 0;
         B(73) = B_ROOK;
         break;
-    case PROMOTE:
-        B(m.to) |= QUEEN;
+    case PROMO_Q:
+    case PROMO_N:
+        B(m.to) += m.special;  // Because PROMO_Q = QUEEN - PAWN and PROMO_N = KNIGHT - PAWN
         board_val[play] -= piece_value[piece];
         board_val[play] += piece_value[piece | QUEEN];
         break;
@@ -621,20 +627,30 @@ static int check_rook_move(char blocking, int from, int to)
     return (B(to) == 0);
 }
 
-static int check_pawn_move(int from, int to, int special)
+static int check_pawn_move(int from, int to)
 {
     if (B(to)) return 0;
-    if (to < 8 || to >= 70) special = PROMOTE;
-    add_move(from, to, special);
+    if (to < 8 || to >= 70) {
+        add_move(from, to, PROMO_Q);
+        add_move(from, to, PROMO_N);
+    }
+    else add_move(from, to, 0);
     return 1;
+}
+
+static void check_pawn_move2(int from, int to, int special)
+{
+    if (B(to) == 0) add_move(from, to, special);
 }
 
 static void check_wpawn_eat(int from, int to)
 {
-    int special = 0;
     if (B(to) & BLACK) {
-        if (to >= 70) special = PROMOTE;
-        add_move(from, to, special);
+        if (to >= 70) {
+            add_move(from, to, PROMO_Q);
+            add_move(from, to, PROMO_N);
+        }
+        else add_move(from, to, 0);
     }
     else if (en_passant[play] == to)
         add_move(from, to, EN_PASSANT);
@@ -642,10 +658,12 @@ static void check_wpawn_eat(int from, int to)
 
 static void check_bpawn_eat(int from, int to)
 {
-    int special = 0;
     if (B(to) & WHITE) {
-        if (to < 8) special = PROMOTE;
-        add_move(from, to, special);
+        if (to < 8) {
+            add_move(from, to, PROMO_Q);
+            add_move(from, to, PROMO_N);
+        }
+        else add_move(from, to, 0);
     }
     else if (en_passant[play] == to)
         add_move(from, to, EN_PASSANT);
@@ -728,14 +746,14 @@ static void list_moves(int pos)
         break;
 
     case W_PAWN:
-        if (check_pawn_move(pos, pos + 10, 0) && pos < 20)
-            check_pawn_move(pos, pos + 20, W_PAWN2);
+        if (check_pawn_move(pos, pos + 10) && pos < 20)
+            check_pawn_move2(pos, pos + 20, W_PAWN2);
         check_wpawn_eat(pos, pos + 9);
         check_wpawn_eat(pos, pos + 11);
         break;
     case B_PAWN:
-        if (check_pawn_move(pos, pos - 10, 0) && pos >= 60)
-            check_pawn_move(pos, pos - 20, B_PAWN2);
+        if (check_pawn_move(pos, pos - 10) && pos >= 60)
+            check_pawn_move2(pos, pos - 20, B_PAWN2);
         check_bpawn_eat(pos, pos - 9);
         check_bpawn_eat(pos, pos - 11);
         break;
@@ -778,12 +796,12 @@ static int in_check_mat(int side)
 //------------------------------------------------------------------------------------
 
 char possible_moves_board[80];
-void set_possible_moves_board( int l, int c)
+void set_possible_moves_board(int l, int c)
 {
     move_t move, list_of_moves[28];
-	move_t* m;
+    move_t* m;
 
-    memset( (void*) possible_moves_board, 0, sizeof(possible_moves_board));
+    memset((void*) possible_moves_board, 0, sizeof(possible_moves_board));
 
     move.from = 10*l + c;
 
@@ -803,7 +821,7 @@ void set_possible_moves_board( int l, int c)
     }
 }
 
-char get_possible_moves_board( int l, int c)
+char get_possible_moves_board(int l, int c)
 {
     return possible_moves_board[10*l + c];
 }
@@ -854,6 +872,8 @@ int try_move_str(char *move_str)
 
     if (!try_move(move, side)) return 0;
     log_info_va("Play %d: <- %.4s\n", play, move_str);
+
+    if (move.special == PROMO_Q) return 2;
     return 1;
 }
 
@@ -975,7 +995,7 @@ static void fast_sort_moves(move_t* list, int nb_moves, int level, move_t table_
 
 #define LAST_ATTACK_INDEX ((KING << 3) + PAWN)
 
-    unsigned int sorted_attacks[192] = { 0 };
+    unsigned int sorted_attacks[192] = {0};
     unsigned int other_moves[256];
     int i, i_max, a, m, o;
 
@@ -1041,9 +1061,9 @@ static int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequ
     int h = get_table_entry(depth, side, &flag, &eval);
 
     int old_a = a;
-    if (flag == LOWER_BOUND)      { if (a < eval) a = eval; }
+    if      (flag == LOWER_BOUND) { if (a < eval) a = eval; }
     else if (flag == UPPER_BOUND) { if (b > eval) b = eval; }
-    if (flag == EXACT_VALUE || (a >= b && flag > OTHER_DEPTH)) {
+    if      (flag == EXACT_VALUE || (a >= b && flag > OTHER_DEPTH)) {
         nb_dedup++;
         mm_move          = table[h].move;
         next_best[level] = best_move[level];
@@ -1185,6 +1205,7 @@ end_add_to_tt:
 void compute_next_move(void)
 {
     move_t engine_move;
+    long level_ms = 0, elapsed_ms = 0;
 
     engine_side = (play & 1) ? BLACK : WHITE;
 
@@ -1221,7 +1242,6 @@ void compute_next_move(void)
         log_info("not found\n");
     }
 #endif
-    long level_ms = 0, elapsed_ms = 0;
     start_chrono();
 
     // Search deeper and deeper the best move,

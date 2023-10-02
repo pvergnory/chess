@@ -311,19 +311,21 @@ static int mouse_to_sq64(int x, int y)
     return c + 8*l;
 }
 
-#define MOUSE_OVER_NEW  1
-#define MOUSE_OVER_PLAY 2
-#define MOUSE_OVER_BACK 3
-#define MOUSE_OVER_FWD  4
-#define MOUSE_OVER_BOOK 5
-#define MOUSE_OVER_RAND 6
-#define MOUSE_OVER_VERB 7
-#define MOUSE_OVER_BRD  8
-#define MOUSE_OVER_BB   9
-#define MOUSE_OVER_QUIT 10
-#define MOUSE_OVER_TIME 11
+#define MOUSE_OVER_NEW   1
+#define MOUSE_OVER_PLAY  2
+#define MOUSE_OVER_BACK  3
+#define MOUSE_OVER_FWD   4
+#define MOUSE_OVER_BOOK  5
+#define MOUSE_OVER_RAND  6
+#define MOUSE_OVER_VERB  7
+#define MOUSE_OVER_BRD   8
+#define MOUSE_OVER_BB    9
+#define MOUSE_OVER_QUIT  10
+#define MOUSE_OVER_TIME  11
+#define MOUSE_OVER_QPROM 12
+#define MOUSE_OVER_NPROM 13
 
-static int display_board( int from64, int show_possible_moves)
+static int display_board(int from64, int show_possible_moves, int prom64)
 {
     SDL_Rect full_window = {0, 0, WINDOW_W, WINDOW_H};
     SDL_Rect rect        = {MARGIN, MARGIN, 8*SQUARE_W + 2*MARGIN, 8*SQUARE_W + 2*MARGIN};
@@ -332,11 +334,14 @@ static int display_board( int from64, int show_possible_moves)
 
     // Detect if the mouse is over the board or its border
     int ret = 0;
-    if (MARGIN <= mx && mx < 3*MARGIN + 8*SQUARE_W
-     && MARGIN <= my && my < 3*MARGIN + 8*SQUARE_W) ret = MOUSE_OVER_BB;
 
-    if (2*MARGIN <= mx && mx < 2*MARGIN + 8*SQUARE_W
-     && 2*MARGIN <= my && my < 2*MARGIN + 8*SQUARE_W) ret = MOUSE_OVER_BRD;
+    if (prom64 < 0) {
+        if (MARGIN <= mx && mx < 3*MARGIN + 8*SQUARE_W
+         && MARGIN <= my && my < 3*MARGIN + 8*SQUARE_W) ret = MOUSE_OVER_BB;
+
+        if (2*MARGIN <= mx && mx < 2*MARGIN + 8*SQUARE_W
+         && 2*MARGIN <= my && my < 2*MARGIN + 8*SQUARE_W) ret = MOUSE_OVER_BRD;
+    }
 
     TTF_Font* f = (ret == MOUSE_OVER_BB) ? m_font : s_font;
     int indices_dy = (ret == MOUSE_OVER_BB) ? -9 : -7;
@@ -385,6 +390,33 @@ static int display_board( int from64, int show_possible_moves)
         put_text(f, &ch, 3*MARGIN/2, 2*MARGIN + SQUARE_W/2 + indices_dy + l*SQUARE_W);
         put_text(f, &ch, 5*MARGIN/2 + 8*SQUARE_W, 2*MARGIN + SQUARE_W/2 + indices_dy + l*SQUARE_W);
     }
+
+    if (prom64 >= 0) {
+        int c  = prom64 % 8;
+        int up = (side_view == 0 && prom64 > 32) || (side_view && prom64 < 32);
+        rect.x = MARGIN + MARGIN/2 + (side_view ? 7 - c : c) * SQUARE_W;
+        rect.y = MARGIN / 2 + (up ? 0 : 2*MARGIN + 6*SQUARE_W);
+        rect.w = MARGIN + SQUARE_W;
+        rect.h = MARGIN + 2*SQUARE_W;
+        SDL_SetRenderDrawColor(render, 250, 238, 203, 255);
+        SDL_RenderFillRect(render, &rect);
+
+        rect.x += MARGIN/2;
+        rect.y += MARGIN/2;
+        rect.w = SQUARE_W;
+        rect.h = 2*SQUARE_W;
+        SDL_SetRenderDrawColor(render, 230, 217, 181, 255);
+        SDL_RenderFillRect(render, &rect);
+
+        if (rect.x <= mx && mx < rect.x + rect.w) {
+            if (rect.y <= my && my < rect.y + SQUARE_W) ret = MOUSE_OVER_QPROM;
+            if (rect.y + SQUARE_W <= my && my < rect.y + 2 * SQUARE_W) ret = MOUSE_OVER_NPROM;
+        }
+
+        draw_piece(prom64 > 32 ? 'Q' : 'q', rect.x + PIECE_M, rect.y + PIECE_M - (ret == MOUSE_OVER_QPROM ? 3 : 0));
+        draw_piece(prom64 > 32 ? 'N' : 'n', rect.x + PIECE_M, rect.y + PIECE_M - (ret == MOUSE_OVER_NPROM ? 3 : 0) + SQUARE_W);
+    }
+
     return ret;
 }
 
@@ -414,7 +446,7 @@ static int put_cursor(long* val, long min, long max, int x, int y, int w, int id
     return ret;
 }
 
-static int display_all(int from64, int x, int y)
+static int display_all(int from64, int x, int y, int prom64)
 {
     char msg_str[64];
 
@@ -422,10 +454,10 @@ static int display_all(int from64, int x, int y)
     mb = SDL_GetMouseState(&mx, &my);
 
     /* Display the board and the pieces that are on it */
-    int ret = display_board( from64, (from64 >= 0 && !x && !y));
+    int ret = display_board(from64, (from64 >= 0 && !x && !y), prom64);
 
     /* If a piece is picked by the user or is moved by move_animation(), draw it */
-    if (from64 >= 0) {
+    if (from64 >= 0 && prom64 < 0) {
         char piece = get_piece(from64 / 8, from64 % 8);
         if (x || y) draw_piece(piece, x, y);
         else        draw_piece(piece, mx - PIECE_W/2, my - PIECE_W/2);
@@ -478,11 +510,11 @@ static void move_animation(char* move)
 
     user_undo_move();
     for (int i = 1; i < 12; i++) {
-        display_all( 8*l0 + c0, x0 + (i*dx)/12, y0 + (i*dy)/12);
+        display_all( 8*l0 + c0, x0 + (i*dx)/12, y0 + (i*dy)/12, -1);
         SDL_Delay(5);
     }
     user_redo_move();
-    display_all(-1, 0, 0);
+    display_all(-1, 0, 0, -1);
 }
 
 //------------------------------------------------------------------------------------
@@ -536,13 +568,14 @@ static int get_move_to(int from64, int to64, char* move_str)
 
 static int handle_user_turn(char* move_str)
 {
-    int mouse_over;
+    int mouse_over, ret;
     int from64  = -1;  // -1 = "no piece currently picked by the user"
+    int prom64  = -1;  // -1 = "no promotion choice"
     int refresh =  1;
 
     while (1) {
         // Refresh the display
-        if (refresh) mouse_over = display_all(from64, 0, 0);
+        if (refresh) mouse_over = display_all(from64, 0, 0, prom64);
         refresh = 0;
 
         // Check if a program sent us its move
@@ -562,30 +595,57 @@ static int handle_user_turn(char* move_str)
 
             // Event is a mouse click
             else if (event.type == SDL_MOUSEBUTTONDOWN) {
-                // handle mouse over a button
-                switch (mouse_over) {
-                case MOUSE_OVER_NEW:  init_game(NULL); break;
-                case MOUSE_OVER_PLAY: return THINK_GS;
-                case MOUSE_OVER_BACK: user_undo_move(); init_communications(); break;
-                case MOUSE_OVER_FWD:  user_redo_move(); break;
-                case MOUSE_OVER_BOOK: use_book = !use_book; break;
-                case MOUSE_OVER_RAND: randomize = !randomize; break;
-                case MOUSE_OVER_VERB: verbose = !verbose; break;
-                case MOUSE_OVER_QUIT: return QUIT_GS;
-                case MOUSE_OVER_BB:   side_view = !side_view; break;
-                case MOUSE_OVER_BRD:  from64 = check_from(mouse_to_sq64(event.button.x, event.button.y));
+                if (prom64 < 0) {
+                    // handle mouse over a button
+                    switch (mouse_over) {
+                    case MOUSE_OVER_NEW:  init_game(NULL); break;
+                    case MOUSE_OVER_PLAY: return THINK_GS;
+                    case MOUSE_OVER_BACK: user_undo_move(); init_communications(); break;
+                    case MOUSE_OVER_FWD:  user_redo_move(); break;
+                    case MOUSE_OVER_BOOK: use_book = !use_book; break;
+                    case MOUSE_OVER_RAND: randomize = !randomize; break;
+                    case MOUSE_OVER_VERB: verbose = !verbose; break;
+                    case MOUSE_OVER_QUIT: return QUIT_GS;
+                    case MOUSE_OVER_BB:   side_view = !side_view; break;
+                    case MOUSE_OVER_BRD:  from64 = check_from(mouse_to_sq64(event.button.x, event.button.y));
+                    }
+                }
+                else {
+                    // handle mouse over a button
+                    switch (mouse_over) {
+                    case MOUSE_OVER_QPROM:
+                        move_str[4] = 'q';
+                        move_str[5] = 0;
+                        try_move_str(move_str);
+                        display_all(-1, 0, 0, -1);
+                        return THINK_GS;
+                    case MOUSE_OVER_NPROM:
+                        move_str[4] = 'n';
+                        move_str[5] = 0;
+                        try_move_str(move_str);
+                        display_all(-1, 0, 0, -1);
+                        return THINK_GS;
+                    default:
+                        prom64 = -1;
+                    }
                 }
                 refresh = 3;
             }
             else if (event.type == SDL_MOUSEBUTTONUP && from64 >= 0) {
                 int to64 = mouse_to_sq64(event.button.x, event.button.y);
                 if (get_move_to(from64, to64, move_str)) {
-                    if (try_move_str(move_str)) {
-                        display_all(-1, 0, 0);
+                    ret = try_move_str(move_str);
+                    if (ret == 1) {
+                        display_all(-1, 0, 0, -1);
                         return THINK_GS;
                     }
+                    if (ret == 2) {  // Handle pawn promotion
+                        user_undo_move();
+                        prom64 = to64;
+                    }
+                    else from64 = -1;
                 }
-                from64 = -1;
+                else from64 = -1;
                 refresh = 4;
             }
 
