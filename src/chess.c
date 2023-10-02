@@ -129,15 +129,16 @@ static SDL_Window*   win = NULL;
 static SDL_Texture*  tex = NULL;
 static SDL_Renderer* render = NULL;
 static SDL_Texture*  text_texture = NULL;
-static int           mx, my;  // mouse position
+static int           mx, my, mb;  // mouse position & buttons
 static int           side_view = 0;
 
-static void exit_with_message( char* error_msg) {
+static void exit_with_message(char* error_msg)
+{
     fprintf(stderr, "%s\n", error_msg);
     exit(EXIT_FAILURE);
 }
 
-static void graphical_exit( char* error_msg)
+static void graphical_exit(char* error_msg)
 {
     if (error_msg) fprintf(stderr, "%s: %s\n", error_msg, SDL_GetError());
     if (tex)       SDL_DestroyTexture(tex);
@@ -182,7 +183,7 @@ SDL_HitTestResult is_drag_or_resize_area(SDL_Window* win, const SDL_Point* area,
         if (delta_y < 5) return SDL_HITTEST_DRAGGABLE;
         if (delta_y >= SQUARE_W - 5) return SDL_HITTEST_DRAGGABLE;
     }
-    if (3*MARGIN + 8*SQUARE_W <= area->x && 220 <= area->y && area->y < WINDOW_H - 72)
+    if (3*MARGIN + 8*SQUARE_W <= area->x && 260 <= area->y && area->y < WINDOW_H - 72)
         return SDL_HITTEST_DRAGGABLE;
 
     return SDL_HITTEST_NORMAL;
@@ -193,7 +194,7 @@ static void set_resizable_params(int w, int h)
     int prev_w = WINDOW_W, prev_h = WINDOW_H;
 
     int menu_w = (w > h + MENU_W/2) ? MENU_W : 0;
-    SQUARE_W = (h - 3*MARGIN - (menu_w ? BOTTOM_M : MARGIN) )/8;
+    SQUARE_W = (h - 3*MARGIN - (menu_w ? BOTTOM_M : MARGIN))/8;
     if (SQUARE_W < 38) SQUARE_W = 38;
     PIECE_W  = SQUARE_W - 4;
     PIECE_M  = (SQUARE_W - PIECE_W) / 2;
@@ -202,11 +203,10 @@ static void set_resizable_params(int w, int h)
     WINDOW_H = 3*MARGIN + 8*SQUARE_W + (menu_w ? BOTTOM_M : MARGIN);
 
     if (WINDOW_W != prev_w || WINDOW_H != prev_h) {
-
         // Load the chess pieces image and scale them to the intended size
-        SDL_RWops* rw_hdl = SDL_RWFromConstMem( (void*) pieces_svg, sizeof(pieces_svg) );
-        SDL_Surface* surface = IMG_LoadSizedSVG_RW( rw_hdl, 12*PIECE_W, PIECE_W);
-        if (surface == NULL) exit_with_message( "error: pieces image not found" );
+        SDL_RWops* rw_hdl = SDL_RWFromConstMem((void*)pieces_svg, sizeof(pieces_svg));
+        SDL_Surface* surface = IMG_LoadSizedSVG_RW(rw_hdl, 12*PIECE_W, PIECE_W);
+        if (surface == NULL) exit_with_message("error: pieces image not found");
         tex = SDL_CreateTextureFromSurface(render, surface);
         SDL_FreeSurface(surface);
     }
@@ -303,7 +303,7 @@ static int mouse_to_sq64(int x, int y)
 {
     if (x < 2*MARGIN) return -1;
     if (y < 2*MARGIN) return -1;
-	
+
     int l = (side_view) ? (y - 2*MARGIN)/SQUARE_W : 7 - (y - 2*MARGIN)/SQUARE_W;
     int c = (side_view) ? 7 - (x - 2*MARGIN)/SQUARE_W : (x - 2*MARGIN)/SQUARE_W;
     if (c < 0 || c > 7 || l < 0 || l > 7) return -1;
@@ -321,6 +321,7 @@ static int mouse_to_sq64(int x, int y)
 #define MOUSE_OVER_BRD  8
 #define MOUSE_OVER_BB   9
 #define MOUSE_OVER_QUIT 10
+#define MOUSE_OVER_TIME 11
 
 static int display_board( int from64, int show_possible_moves)
 {
@@ -387,22 +388,47 @@ static int display_board( int from64, int show_possible_moves)
     return ret;
 }
 
+static int put_cursor(long* val, long min, long max, int x, int y, int w, int id)
+{
+    int ret = 0;
+
+    SDL_Rect rect = {x, y + 8, w, 8};
+    SDL_SetRenderDrawColor(render, 250, 238, 203, 255);
+    SDL_RenderFillRect(render, &rect);
+
+    // Move the cursor if required
+    if (mb == 1 && x + 4 <= mx && mx <= x + w - 4 && y <= my && my < y + 24) {
+        *val = min + (mx - x - 4) * (max - min) / (w - 8);
+        ret  = id;
+    }
+
+    SDL_Rect rect2 = {x + (*val - min) * (w - 8) / (max - min), y, 8, 24};
+    SDL_SetRenderDrawColor(render, 190, 180, 145, SDL_ALPHA_OPAQUE);
+    SDL_RenderFillRect(render, &rect2);
+
+    // Display the cursor value
+    char str_val[10];
+    sprintf(str_val, "%d ms", (int)(*val));
+    put_text(m_font, str_val, x + w/2, y + 24);
+
+    return ret;
+}
+
 static int display_all(int from64, int x, int y)
 {
     char msg_str[64];
 
     set_resizable_params(WINDOW_W, WINDOW_H);
-
-    SDL_GetMouseState(&mx, &my);
+    mb = SDL_GetMouseState(&mx, &my);
 
     /* Display the board and the pieces that are on it */
-    int ret = display_board( from64, (from64 >= 0 && !x && !y) );
+    int ret = display_board( from64, (from64 >= 0 && !x && !y));
 
     /* If a piece is picked by the user or is moved by move_animation(), draw it */
     if (from64 >= 0) {
-        char piece = get_piece( from64 / 8, from64 % 8);
-        if (x || y) draw_piece( piece, x, y );
-        else        draw_piece( piece, mx - PIECE_W/2, my - PIECE_W/2 );
+        char piece = get_piece(from64 / 8, from64 % 8);
+        if (x || y) draw_piece(piece, x, y);
+        else        draw_piece(piece, mx - PIECE_W/2, my - PIECE_W/2);
     }
 
     /* Display buttons and texts */
@@ -428,8 +454,11 @@ static int display_all(int from64, int x, int y)
         SDL_SetRenderDrawColor(render, 0, 0, 0, 255);
     }
     else SDL_SetRenderDrawColor(render, 176, 126, 83, 255);
-    SDL_RenderDrawLine(render, WINDOW_W - 15, 5, WINDOW_W -5, 15);
-    SDL_RenderDrawLine(render, WINDOW_W - 15, 15, WINDOW_W -5, 5);
+    SDL_RenderDrawLine(render, WINDOW_W - 15, 5, WINDOW_W - 5, 15);
+    SDL_RenderDrawLine(render, WINDOW_W - 15, 15, WINDOW_W - 5, 5);
+
+    // Draw the time cursor
+    ret += put_cursor(&time_budget_ms, 2000, 60000, TEXT_X, 240, MENU_W - MARGIN, MOUSE_OVER_TIME);
 
     SDL_RenderPresent(render);
     return ret;
@@ -505,7 +534,7 @@ static int get_move_to(int from64, int to64, char* move_str)
     return 1;
 }
 
-static int handle_user_turn( char* move_str)
+static int handle_user_turn(char* move_str)
 {
     int mouse_over;
     int from64  = -1;  // -1 = "no piece currently picked by the user"
