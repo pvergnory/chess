@@ -174,7 +174,7 @@ SDL_HitTestResult is_drag_or_resize_area(SDL_Window* win, const SDL_Point* area,
     if (area->y >= WINDOW_H - MARGIN) return SDL_HITTEST_RESIZE_BOTTOM;
 
     if (area->x >= 2*MARGIN && area->x < 2*MARGIN + 8*SQUARE_W
-	 && area->y >= 2*MARGIN && area->y < 2*MARGIN + 8*SQUARE_W) {
+     && area->y >= 2*MARGIN && area->y < 2*MARGIN + 8*SQUARE_W) {
         int delta_x = (area->x - 2*MARGIN) % SQUARE_W;
         int delta_y = (area->y - 2*MARGIN) % SQUARE_W;
         if (delta_x < 5) return SDL_HITTEST_DRAGGABLE;
@@ -507,18 +507,20 @@ static int get_move_to(int from64, int to64, char* move_str)
 
 static int handle_user_turn( char* move_str)
 {
-    int from64 = -1;  // -1 = "no piece currently picked by the user"
     int mouse_over;
+    int from64  = -1;  // -1 = "no piece currently picked by the user"
+    int refresh =  1;
 
     while (1) {
         // Refresh the display
-        mouse_over = display_all( from64, 0, 0);
+        if (refresh) mouse_over = display_all(from64, 0, 0);
+        refresh = 0;
 
         // Check if a program sent us its move
         if (receive_move(move_str))
             if (try_move_str(move_str)) return ANIM_GS;
 
-        SDL_Delay(10);
+        SDL_Delay((from64 >= 0) ? 5 : 50);
 
         // Handle Mouse and keyboard events
         SDL_Event event;
@@ -527,7 +529,10 @@ static int handle_user_turn( char* move_str)
             if (event.type == SDL_QUIT) return QUIT_GS;
 
             // Event is a mouse click
-            if (event.type == SDL_MOUSEBUTTONDOWN) {
+            if (event.type == SDL_MOUSEMOTION) refresh = 2;
+
+            // Event is a mouse click
+            else if (event.type == SDL_MOUSEBUTTONDOWN) {
                 // handle mouse over a button
                 switch (mouse_over) {
                 case MOUSE_OVER_NEW:  init_game(NULL); break;
@@ -541,6 +546,7 @@ static int handle_user_turn( char* move_str)
                 case MOUSE_OVER_BB:   side_view = !side_view; break;
                 case MOUSE_OVER_BRD:  from64 = check_from(mouse_to_sq64(event.button.x, event.button.y));
                 }
+                refresh = 3;
             }
             else if (event.type == SDL_MOUSEBUTTONUP && from64 >= 0) {
                 int to64 = mouse_to_sq64(event.button.x, event.button.y);
@@ -551,6 +557,7 @@ static int handle_user_turn( char* move_str)
                     }
                 }
                 from64 = -1;
+                refresh = 4;
             }
 
             // Event is a keyboard input
@@ -570,12 +577,15 @@ static int handle_user_turn( char* move_str)
                     if (event.key.keysym.mod & KMOD_SHIFT) ch += ('A' - 'a');
                     debug_actions(ch);
                 }
+                refresh = 5;
             }
 
             // Event is a window resizing event
             else if (event.type == SDL_WINDOWEVENT) {
-                if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
                     set_resizable_params(event.window.data1, event.window.data2);
+                    refresh = 6;
+                }
             }
         }
     }
@@ -611,8 +621,8 @@ int main(int argc, char* argv[])
             game_state = THINK_GS;
         }
         // To the program to play
-       SDL_Cursor* cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
-       SDL_SetCursor(cursor);
+        SDL_Cursor* cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+        SDL_SetCursor(cursor);
         compute_next_move();
         cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
         SDL_SetCursor(cursor);
