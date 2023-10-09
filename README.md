@@ -27,9 +27,7 @@ To build the two engines, use `build.bat` on Windows or `build` on Linux without
 
 ## Using chess (Linux), or chess.exe (Windows)
 
-The program needs resources related to the GUI, that are grouped in the 'resources' folder.
-
-On Windows, the program needs also to have access to the 4 following graphical DLLs. These DLLs can be in the same directory as the program or in a directory listed in the PATH environment variable:
+On Windows, the program needs to have access to the 4 following graphical DLLs. These DLLs can be in the same directory as the program or in a directory listed in the PATH environment variable:
 - SDL2.dll
 - SDL2_image.dll
 - SDL2_ttf.dll

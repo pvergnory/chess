@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://wwwinkscapeorg/) -->
+
+<svg
+   width="720"
+   height="60"
+   viewBox="0 0 720 60"
+   version="1.1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs />
+  <g>
+    <!-- Black Pawn -->
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 30,12 c -7,0 -9,8 -4,11 -6,3 -8,9 -3,14 -7,5 -8,12 -8,16 H 45 C 45,49 44,42 37,37 42,32 40,26 34,23 39,20 37,12 30,12 Z" />
+
+    <!-- Black King -->
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 88,10 h 4 v 2 h 2 v 4 h -2 v 2 h -4 v -2 h -2 v -4 h 2 z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 85,31 h 10 c 0,0 6,-13 -5,-13 -11,0 -5,13 -5,13 z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="M 90,41 V 30 C 85,25 81,22 77,22 73,22 69,24 69,29 69,35 77,41 77,41 Z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="M 90,41 V 30 c 5,-5 9,-8 13,-8 4,0 8,2 8,7 C 111,35 103,41 103,41 Z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 77,41 v 5 c 0,0 5,-2 13,-2 C 98,44 103,46 103,46 V 41 C 103,41 98,39 90,39 82,39 77,41 77,41 Z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 77,46 v 5 c 0,0 5,-2 13,-2 C 98,49 103,51 103,51 V 46 C 103,46 98,44 90,44 82,44 77,46 77,46 Z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 77,51 c 0,0 8,-2 13,-2 5,0 13,2 13,2 0,0 -8,2 -13,2 -5,0 -13,-2 -13,-2 z" />
+
+    <!-- Black Knight -->
+    <path
+       style="fill:none;stroke:#ffffff;stroke-width:1.5"
+       d="m 132,42 2,-3" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 139,53 h 26 c 0,-17 -1,-32 -13,-36 0,0 -2,-3 -4,-4 0,1 -2,5 -2,5 0,0 -2,-2 -6,-2 v 4 c 0,0 -11,14 -11,17 0,3 0,3 3,5 2,1 2,0 4,-1 8,-6 11,-7 11,-7 0,0 0,2 -2,4 -4,5 -7,9 -6,15 z" />
+    <path
+       style="fill:#ffffff;stroke:none"
+       d="m 139,26 c 0,0 3,-1 3,-1 0,1 -1,2 -1,2 -1,0 0,0 -1,0 z" />
+    <path
+       style="fill:none;stroke:#ffffff;stroke-width:1.5"
+       d="m 154,21 c 7,6 8,13 8,28" />
+
+    <!-- Black Bishop -->
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 210,22 c -6,0 -12,11 -12,14 0,3 4,5 4,5 h 16 c 0,0 4,-2 4,-5 0,-3 -6,-14 -12,-14 z" />
+    <circle
+       style="stroke:#ffffff;stroke-width:1.5"
+       cx="210"
+       cy="18"
+       r="3.5" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 205,40 c -5,0 -4,6 0,6 h 10 c 4,0 5,-6 0,-6 z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 204,47 c -1,2 -4,2 -7,2 -3,0 -5,2 -5,2 v 2 c 0,0 6,-1 9,-1 3,0 9,-1 9,-3 v -2 z" />
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 216,47 c 1,2 4,2 7,2 3,0 5,2 5,2 v 2 c 0,0 -6,-1 -9,-1 -3,0 -9,-1 -9,-3 v -2 z" />
+    <rect
+       style="fill:#ffffff;stroke:none"
+       width="2"
+       height="7"
+       x="209"
+       y="29" />
+    <rect
+       style="fill:#ffffff;stroke:none"
+       width="6"
+       height="2"
+       x="207"
+       y="31" />
+
+    <!-- Black Rook -->
+    <path
+       style="fill:#000000;stroke:#ffffff;stroke-width:1.5"
+       d="m 256,20 h 28 v -8 h -6 v 3 h -5 v -3 h -6 v 3 h -5 v -3 h -6 z" />
+    <rect
+       style="stroke:#ffffff;stroke-width:1.5"
+       width="30"
+       height="9"
+       x="255"
+       y="45" />
+    <rect
+       style="stroke:#ffffff;stroke-width:1.5"
+       width="22"
+       height="16"
+       x="259"
+       y="25" />
+    <rect
+       style="stroke:#ffffff;stroke-width:1.5"
+       width="24"
+       height="5"
+       x="258"
+       y="40" />
+    <rect
+       style="stroke:#ffffff;stroke-width:1.5"
+       width="24"
+       height="5"
+       x="258"
+       y="20" />
+
+    <!-- Black Queen -->
+    <path
+       style="stroke:#ffffff;stroke-width:1.5"
+       d="m 315,42 -8,-22 12,13 -2,-20 9,19 4,-21 4,21 9,-19 -2,20 12,-13 -8,22 z" />
+    <rect
+       style="stroke:#ffffff;stroke-width:1.5"
+       width="30"
+       height="7"
+       x="315"
+       y="47" />
+    <rect
+       style="stroke:#ffffff;stroke-width:1.5"
+       width="28"
+       height="5"
+       x="316"
+       y="42" />
+    <circle
+       style="stroke:#ffffff;stroke-width:1.5"
+       cx="308"
+       cy="22"
+       r="2" />
+    <circle
+       style="stroke:#ffffff;stroke-width:1.5"
+       cx="318"
+       cy="15"
+       r="2" />
+    <circle
+       style="stroke:#ffffff;stroke-width:1.5"
+       cx="330"
+       cy="13"
+       r="2" />
+    <circle
+       style="stroke:#ffffff;stroke-width:1.5"
+       cx="342"
+       cy="15"
+       r="2" />
+    <circle
+       style="stroke:#ffffff;stroke-width:1.5"
+       cx="352"
+       cy="22"
+       r="2" />
+
+    <!-- White Pawn -->
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 390,12 c -7,0 -9,8 -4,11 -6,3 -8,9 -3,14 -7,5 -8,12 -8,16 h 30 c 0,-4 -1,-11 -8,-16 5,-5 3,-11 -3,-14 5,-3 3,-11 -4,-11 z" />
+
+    <!-- White King -->
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 448,10 h 4 v 2 h 2 v 4 h -2 v 2 h -4 v -2 h -2 v -4 h 2 z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 445,31 h 10 c 0,0 6,-13 -5,-13 -11,0 -5,13 -5,13 z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="M 450,41 V 30 c -5,-5 -9,-8 -13,-8 -4,0 -8,2 -8,7 C 429,35 437,41 437,41 Z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="M 450,41 V 30 c 5,-5 9,-8 13,-8 4,0 8,2 8,7 C 471,35 463,41 463,41 Z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 437,41 v 5 c 0,0 5,-2 13,-2 C 458,44 463,46 463,46 v -5 c 0,0 -5,-2 -13,-2 C 442,39 437,41 437,41 Z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 437,46 v 5 c 0,0 5,-2 13,-2 C 458,49 463,51 463,51 v -5 c 0,0 -5,-2 -13,-2 C 442,44 437,46 437,46 Z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 437,51 c 0,0 8,-2 13,-2 5,0 13,2 13,2 0,0 -8,2 -13,2 -5,0 -13,-2 -13,-2 z" />
+
+    <!-- White Knight -->
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 499,53 h 26 c 0,-17 -1,-32 -13,-36 0,0 -2,-3 -4,-4 0,1 -2,5 -2,5 0,0 -2,-2 -6,-2 v 4 c 0,0 -11,14 -11,17 0,3 0,3 3,5 2,1 2,0 4,-1 8,-6 11,-7 11,-7 0,0 0,2 -2,4 -4,5 -7,9 -6,15 z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 499,26 c 0,0 3,-1 3,-1 0,1 -1,2 -1,2 -1,0 0,0 -1,0 z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 492,42 2,-3" />
+
+    <!-- White Bishop -->
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 570,22 c -6,0 -12,11 -12,14 0,3 4,5 4,5 h 16 c 0,0 4,-2 4,-5 0,-3 -6,-14 -12,-14 z" />
+    <circle
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       cx="570"
+       cy="18"
+       r="3.5" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 564,41 c -5,0 -4,6 0,6 L 576,47 c 4,0 5,-6 0,-6 z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 564,47 c -1,2 -4,2 -7,2 -3,0 -5,2 -5,2 v 2 c 0,0 6,-1 9,-1 3,0 9,-1 9,-3 L 567,47 Z" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 576,47 c 1,2 4,2 7,2 3,0 5,2 5,2 v 2 c 0,0 -6,-1 -9,-1 -3,0 -9,-1 -9,-3 L 567,47 Z" />
+    <rect
+       style="fill:#000000;stroke:none"
+       width="2"
+       height="7"
+       x="569"
+       y="29" />
+    <rect
+       style="fill:#000000;stroke:none"
+       width="6"
+       height="2"
+       x="567"
+       y="31" />
+
+    <!-- White Rook -->
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       width="30"
+       height="9"
+       x="615"
+       y="45" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 616,20 h 28 v -8 h -6 v 3 h -5 v -3 h -6 v 3 h -5 v -3 h -6 z" />
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       width="22"
+       height="16"
+       x="619"
+       y="25" />
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       width="24"
+       height="5"
+       x="618"
+       y="40" />
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       width="24"
+       height="5"
+       x="618"
+       y="20" />
+
+    <!-- White Qween -->
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       width="30"
+       height="7"
+       x="675"
+       y="47" />
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       width="28"
+       height="5"
+       x="676"
+       y="42" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       d="m 675,42 -8,-22 12,13 -2,-20 9,19 4,-21 4,21 9,-19 -2,20 12,-13 -8,22 z" />
+    <circle
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       cx="668"
+       cy="22"
+       r="2" />
+    <circle
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       cx="678"
+       cy="15"
+       r="2" />
+    <circle
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       cx="690"
+       cy="13"
+       r="2" />
+    <circle
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       cx="702"
+       cy="15"
+       r="2" />
+    <circle
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.5"
+       cx="712"
+       cy="22"
+       r="2" />
+  </g>
+</svg>
